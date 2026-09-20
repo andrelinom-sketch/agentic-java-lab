@@ -29,6 +29,8 @@ check_command "mvn" "mvn -version"
 check_command "docker" "docker --version"
 check_command "node" "node --version"
 check_command "npm" "npm --version"
+check_command "python3" "python3 --version"
+check_command "uv" "uv --version"
 
 echo "Docker Compose:"
 if docker compose version >/dev/null 2>&1; then

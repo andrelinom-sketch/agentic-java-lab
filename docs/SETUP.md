@@ -26,6 +26,8 @@ o ambiente utilizado durante os experimentos.
 | npm | compatível com Node 22 | 10.9.8 |
 | NVM | recomendado | 0.40.7 |
 | BMAD Method | 6.x | 6.12.0 |
+| Python | 3.12+ | 3.12.3 |
+| uv | requerido pelo BMAD | 0.12.17 |
 
 As versões da coluna **Ambiente de referência** registram o ambiente no
 qual o laboratório foi iniciado.
@@ -347,8 +349,68 @@ gh auth status
 ```
 
 ---
+# 9. Python e uv
 
-# 9. BMAD Method
+O BMAD utiliza scripts Python em alguns de seus skills.
+
+O Ubuntu 24.04 utilizado como ambiente de referência já possui Python 3.
+
+Verifique:
+
+```bash
+python3 --version
+```
+
+Ambiente de referência:
+
+```text
+Python 3.12.3
+```
+
+## 9.1 Instalar uv
+
+Alguns skills do BMAD executam scripts através de:
+
+```text
+uv run
+```
+
+Por isso, possuir apenas Python instalado não é suficiente para utilizar
+todos os recursos do BMAD.
+
+Instale o `uv` utilizando o instalador oficial:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Verifique:
+
+```bash
+which uv
+uv --version
+```
+
+No ambiente de referência:
+
+```text
+uv 0.12.17
+```
+
+O instalador normalmente coloca o executável em:
+
+```text
+$HOME/.local/bin/uv
+```
+
+Esse diretório precisa estar disponível no `PATH`.
+
+> O `uv` gerencia automaticamente o ambiente Python e as dependências
+> necessárias aos scripts utilizados pelos skills do BMAD. Não crie
+> manualmente um `venv` apenas para atender essa dependência, salvo se
+> algum experimento futuro exigir isso.
+
+# 10. BMAD Method
 
 O BMAD é utilizado na primeira fase do laboratório para transformar a
 ideia inicial em:
@@ -383,7 +445,7 @@ se houve mudança de comportamento, estrutura ou workflows.
 
 ---
 
-# 10. Verificação manual
+# 11. Verificação manual
 
 Caso queira verificar individualmente as ferramentas:
 
@@ -396,11 +458,13 @@ docker compose version
 node --version
 npm --version
 nvm --version
+python3 --version
+uv --version
 ```
 
 ---
 
-# 11. Princípio de versionamento
+# 12. Princípio de versionamento
 
 O laboratório diferencia dois conceitos.
 
@@ -434,7 +498,7 @@ a manter exatamente o mesmo patch de cada ferramenta.
 
 ---
 
-# 12. Próximo passo
+# 13. Próximo passo
 
 Quando:
 
