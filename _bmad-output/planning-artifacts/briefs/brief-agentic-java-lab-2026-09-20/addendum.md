@@ -2,6 +2,11 @@
 
 Material de profundidade que não cabe no brief e deve alimentar o PRD, a arquitetura e as ADRs. Não contém trilha de auditoria (ver `.memlog.md`).
 
+## Terminologia
+
+- **Baseline experimental:** os instrumentos que funcionam como régua (CI, testes de referência, critérios de aceite, arquivos de contexto).
+- **Estado de referência do plano:** o snapshot do `LAB-PLAN.md` no commit `a8e2649`, usado como ponto de partida para avaliar o BMAD.
+
 ## 1. Instrumentos de medição (para PRD e arquitetura)
 
 - **CI comum.** Deve aplicar as mesmas verificações a qualquer PR, de qualquer agente. Conteúdo mínimo a definir no PRD (por exemplo, build, testes e análise estática). A escolha da ferramenta de análise estática é decisão arquitetural (provável ADR).
@@ -38,7 +43,7 @@ Tempo e custo entram quando medidos. Os demais campos do modelo do `LAB-PLAN.md`
 ## 4. Experimento 01 (BMAD)
 
 - Os critérios de avaliação do BMAD como planejador são **parcialmente post hoc**: limitação metodológica declarada.
-- **Linha de base congelada:** o estado do plano no commit `a8e2649`. Antes de o BMAD avançar, registrar a lista de ambiguidades e inconsistências já conhecidas, para medir depois o que o processo acrescentou.
+- **Estado de referência do plano, congelado:** o `LAB-PLAN.md` no commit `a8e2649`. Antes de o BMAD avançar, registrar a lista de ambiguidades e inconsistências já conhecidas, para medir depois o que o processo acrescentou.
 - Ideia inicial de métrica: comparar o `LAB-PLAN.md` com os artefatos produzidos e verificar quais ambiguidades, inconsistências, riscos e decisões foram descobertos. Limites já identificados: contar descobertas premia volume, e falta um contrafactual (por exemplo, o que um único prompt direto teria achado).
 - **Circularidade:** a aderência à arquitetura é medida contra ADRs produzidas com o BMAD e aprovadas pelo autor. A qualidade do plano é uma variável de entrada, e a revisão humana dele deve ser registrada.
 
@@ -66,8 +71,16 @@ Objetivo de aprendizado declarado do laboratório completo, fora da V1. Não int
 
 ## 7. Pendências antes da publicação
 
-1. Verificar as fontes complementares. Só entram como evidência as abertas e conferidas.
+1. Verificar as fontes complementares. Só entram como evidência as abertas e conferidas. **O brief permanece `draft` enquanto esta verificação estiver pendente.**
 2. Escolher a licença do repositório.
 3. Corrigir a divergência de numeração de fases entre `README.md` e `LAB-PLAN.md`, e o item "Configurar BMAD" ainda pendente no README.
 4. Decidir mesma story ou stories equivalentes quando o segundo agente entrar.
-5. Executar o polimento do brief (`bmad-review`, lentes de estrutura e prosa).
+5. Polimento do brief (`bmad-review`, lentes de estrutura e prosa): aplicado em 2026-09-21. A seção "Limitações conhecidas" e a mudança da licença para junto da Visão foram adiadas.
+
+## 8. Decisões a detalhar antes do primeiro experimento medido
+
+Nenhum limiar foi definido. Os itens abaixo são decisões pendentes, a fechar no PRD ou na rubrica antes do primeiro experimento medido.
+
+- **Critério de sucesso 2 (consistência da rubrica):** método de verificação, quem classifica, intervalo entre as classificações e o limiar que conta como "consistente". Uma opção levantada, não decidida, é a dupla classificação do mesmo experimento.
+- **Critério de sucesso 3 (rastreabilidade):** quem executa o teste (pessoa de fora ou agente em contexto novo), qual recomendação é usada e o que conta como chegar às evidências "sem ajuda".
+- **Fracasso 2 (custo de registrar):** unidade de medida (por exemplo, tempo) e o limiar em que o custo do registro supera o do experimento.
