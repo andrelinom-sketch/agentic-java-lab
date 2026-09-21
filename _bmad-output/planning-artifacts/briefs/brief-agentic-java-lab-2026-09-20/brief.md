@@ -28,7 +28,7 @@ O laboratório se organiza em três camadas.
 **Instrumentos de observação e controle.**
 - Uma cadeia de planejamento feita com o método BMAD (brief, PRD, arquitetura, ADRs e um backlog de 3 a 5 stories). Ela fixa as regras e o contexto contra os quais os agentes são observados, e a aprovação humana desse plano faz parte do experimento.
 - Uma rubrica versionada, com critérios congelados antes de cada experimento. O Experimento 01 (BMAD) é uma exceção declarada: parte dos critérios surgiu durante a execução, o que é uma limitação metodológica.
-- Um CI comum a todos os agentes e arquivos de contexto versionados. Ambos são criados sob supervisão humana e tratados como baseline experimental: nenhum agente sob avaliação pode enfraquecê-los silenciosamente.
+- Uma **baseline experimental**, fixada antes de cada Experimento medido. Ela reúne instrumentos de especificação e avaliação (PRD, rubrica, critérios de aceite, contexto e guardrails) e instrumentos de verificação (um CI comum a todos os agentes e testes de referência). CI, testes de referência e arquivos de contexto são preparados sob supervisão humana, e nenhum agente sob avaliação pode enfraquecer a baseline silenciosamente. _O PRD e a rubrica foram acrescentados à baseline em 2026-09-21, durante a elaboração do PRD, por decisão humana (ver addendum, Terminologia)._
 
 **Saídas para o leitor.**
 - Repositório público legível, com código, histórico, PRs e ADRs.
@@ -69,7 +69,7 @@ Se a fatia não estiver completa em 18/10/2026, o resultado registrado é **"V1 
 **Fracasso:**
 - a rubrica se mostrou inadequada a ponto de impedir uma avaliação coerente do experimento (a evolução da rubrica não é fracasso);
 - o custo de registrar superou o custo do experimento;
-- algum instrumento (CI, testes de referência, critérios de aceite) foi alterado sem registro.
+- algum instrumento da baseline experimental foi alterado sem registro.
 
 ## Visão
 

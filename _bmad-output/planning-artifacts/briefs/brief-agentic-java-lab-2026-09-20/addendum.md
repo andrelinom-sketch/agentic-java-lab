@@ -4,14 +4,15 @@ Material de profundidade que não cabe no brief e deve alimentar o PRD, a arquit
 
 ## Terminologia
 
-- **Baseline experimental:** os instrumentos que funcionam como régua (CI, testes de referência, critérios de aceite, arquivos de contexto).
+- **Baseline experimental:** os instrumentos que funcionam como régua de um Experimento. Dois grupos: **especificação e avaliação** (PRD, rubrica, critérios de aceite, contexto e guardrails) e **verificação** (CI e testes de referência).
+  - *Rastreabilidade:* a definição original, feita na elaboração do brief, era CI, testes de referência, critérios de aceite e arquivos de contexto. O **PRD** e a **rubrica** foram acrescentados em 2026-09-21, durante a elaboração do PRD, por decisão de Andrelino. A classificação nos dois grupos foi inferida pelo agente e aprovada por Andrelino na mesma data.
 - **Estado de referência do plano:** o snapshot do `LAB-PLAN.md` no commit `a8e2649`, usado como ponto de partida para avaliar o BMAD.
 
 ## 1. Instrumentos de medição (para PRD e arquitetura)
 
 - **CI comum.** Deve aplicar as mesmas verificações a qualquer PR, de qualquer agente. Conteúdo mínimo a definir no PRD (por exemplo, build, testes e análise estática). A escolha da ferramenta de análise estática é decisão arquitetural (provável ADR).
 - **Criação do CI.** Story específica, sob supervisão humana direta e aprovada pelo autor antes do primeiro experimento de implementação medido. Não conta como execução comparativa de autonomia.
-- **Proteção da baseline.** CI, testes de referência, critérios de aceite e demais instrumentos que funcionam como régua passam a fazer parte da baseline. Mudanças durante um experimento exigem aprovação humana e são registradas como alteração de protocolo ou intervenção. O mecanismo técnico (por exemplo, proprietários de código e proteção de branch) será decidido depois.
+- **Proteção da baseline.** Todos os elementos da baseline experimental (PRD, rubrica, critérios de aceite, contexto e guardrails, CI e testes de referência) ficam protegidos. Mudanças durante um experimento exigem aprovação humana e são registradas como alteração de protocolo ou intervenção. O mecanismo técnico (por exemplo, proprietários de código e proteção de branch) será decidido depois.
 - **Arquivos de contexto** (`CLAUDE.md`, `AGENTS.md` e equivalentes): variável independente do experimento. Versionados e congelados por experimento.
 - **Risco conhecido:** um agente pode enfraquecer testes ou o workflow para passar. Isso deve ser detectável e registrado.
 
