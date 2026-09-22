@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.agenticlab.reference.support.PostgresContainerConfig;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationState;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,7 +37,11 @@ class ApplicationSmokeTest {
     }
 
     @Test
-    void flywayRunsWithoutMigrations() {
-        assertThat(flyway.info().all()).isEmpty();
+    void flywayAppliesAllMigrationsSuccessfully() {
+        MigrationInfo[] migrations = flyway.info().all();
+
+        assertThat(migrations).isNotEmpty();
+        assertThat(migrations)
+                .allSatisfy(migration -> assertThat(migration.getState()).isEqualTo(MigrationState.SUCCESS));
     }
 }
