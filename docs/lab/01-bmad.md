@@ -1,4 +1,10 @@
-# Experimento 01 — BMAD
+# BMAD Planning Cycle 01 — BMAD
+
+> Nomenclatura: este registro foi originalmente intitulado "Experimento 01 —
+> BMAD", nome ainda usado pelo PRD (FR-6). Passa a se chamar **BMAD Planning
+> Cycle 01**, distinto do **Claude Code Experiment 01 (CC-EXP-01)**
+> (`docs/lab/02-claude-code-exp-01.md`). Ver `docs/lab/baseline.md`, seção
+> "Nomenclatura".
 
 ## Objetivo
 

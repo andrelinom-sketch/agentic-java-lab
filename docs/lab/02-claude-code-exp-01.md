@@ -1,4 +1,8 @@
-# Experimento 01 — Claude Code implementa a Story 1.2 (transferência válida)
+# Claude Code Experiment 01 (CC-EXP-01) — Claude Code implementa a Story 1.2 (transferência válida)
+
+> Nomenclatura: este é o **CC-EXP-01**, distinto do **BMAD Planning Cycle
+> 01** (`docs/lab/01-bmad.md`). Ver `docs/lab/baseline.md`, seção
+> "Nomenclatura".
 
 Pré-declaração escrita **antes** de acionar o agente, para evitar viés
 retrospectivo na avaliação do resultado.
@@ -21,7 +25,7 @@ nesse documento.
 
 ## Ponto de partida
 
-- Tag: `freeze/exp-01` (hash a preencher quando a tag for criada).
+- Tag: `freeze/exp-01`, commit `2cc86e58a58acd5e62460b1a0081c99c86c4c890`.
 - Branch do experimento: `experiment/exp-01-transfer`, criada a partir da tag.
 
 ## Contexto fornecido ao agente
@@ -89,8 +93,15 @@ continuaram verdes, sem alteração.
 **Intervenções humanas durante a implementação:** nenhuma. O build passou
 na primeira tentativa, sem iteração de tentativa-erro.
 
-**Arquivos congelados:** nenhum foi alterado (confirmado via `git status
---short` contra a lista de `CLAUDE.md`).
+**Arquivos congelados:** nenhum arquivo protegido pelo `CLAUDE.md` foi
+alterado (confirmado via `git status --short` contra essa lista). Porém,
+três arquivos de `src/main/java/dev/agenticlab/account/**`, pacote listado
+como congelado em `docs/lab/baseline.md` (baseline S1), foram estendidos:
+`Account`, `AccountRepository` e `AccountService`. A extensão era necessária
+para implementar a Story 1.2 conforme AD-2 e AD-4 e não é falha do agente.
+Está registrada como desvio **DEV-CC-EXP-01-01** em `docs/lab/baseline.md`.
+*(Correção pós-merge: a versão anterior deste registro dizia que nenhum
+arquivo congelado havia sido alterado.)*
 
 **Decisões autônomas/inferidas identificadas na revisão humana:**
 
@@ -119,5 +130,5 @@ experimento):**
 `BUILD SUCCESS`.
 
 **Resultado da revisão humana:** implementação aceita dentro do escopo do
-Experimento 01 (Story 1.2), com as limitações acima registradas como
+CC-EXP-01 (Story 1.2), com as limitações acima registradas como
 conhecidas e deliberadamente adiadas para as stories seguintes.

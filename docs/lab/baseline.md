@@ -3,6 +3,22 @@
 Este documento lista os artefatos congelados a cada marco (`freeze/exp-NN`)
 e a régua comum de verificação (AD-9, AD-10).
 
+## Nomenclatura
+
+Para evitar ambiguidade, os ciclos do laboratório são identificados assim
+nos documentos de `docs/lab/`:
+
+- **BMAD Planning Cycle 01** — ciclo de planejamento com BMAD (brief, PRD,
+  arquitetura, épicos e stories), registrado em `docs/lab/01-bmad.md`. É o
+  ciclo que o PRD (FR-6) e o título de `01-bmad.md` chamam de
+  "Experimento 01 (BMAD)".
+- **Claude Code Experiment 01 (CC-EXP-01)** — implementação da Story 1.2
+  por Claude Code, registrada em `docs/lab/02-claude-code-exp-01.md`.
+
+Tags, branches e o histórico Git existentes não são renomeados: a tag
+`freeze/exp-01` e a branch `experiment/exp-01-transfer` pertencem ao
+CC-EXP-01.
+
 ## Infraestrutura comum (pré-experimentos)
 
 Artefatos que compõem a régua e não devem ser alterados por um agente
@@ -28,7 +44,7 @@ fora do experimento medido. Faz parte da baseline congelada a partir daqui:
 - `src/test/java/dev/agenticlab/reference/AccountApiReferenceTest.java` —
   testes de referência dos critérios de aceite da Story 1.1
 
-## Experimento 01 — Story 1.2 (transferência válida)
+## Claude Code Experiment 01 (CC-EXP-01) — Story 1.2 (transferência válida)
 
 Pré-declaração completa em `docs/lab/02-claude-code-exp-01.md`.
 
@@ -37,7 +53,7 @@ grupos a seguir juntos, no mesmo commit:
 
 1. **Baseline verde (11 testes já existentes):** `ApplicationSmokeTest` (3),
    `AccountApiReferenceTest` (5), `ArchitectureTest` (3). Continuam
-   passando sem alteração — nenhum deles é tocado pelo Experimento 01.
+   passando sem alteração — nenhum deles é tocado pelo CC-EXP-01.
 2. **Especificação executável, inicialmente vermelha (2 testes):**
    `TransferApiReferenceTest` (`transferBetweenExistingAccountsDebitsAndCredits`,
    `transferPreservesSumOfBalances`). Falham propositalmente na criação da
@@ -62,16 +78,44 @@ Story 1.4 / Experimento futuro.
 ### freeze/exp-01
 
 - Data: 2026-09-22
-- Commit: o commit apontado pela tag anotada `freeze/exp-01` é o registro
-  autoritativo (`git rev-list -n 1 freeze/exp-01`); não duplicado aqui para
-  evitar autorreferência.
+- Tag: `freeze/exp-01` (anotada)
+- Commit: `2cc86e58a58acd5e62460b1a0081c99c86c4c890`
+  (`git rev-list -n 1 freeze/exp-01`)
 - Objetivo do experimento: ver `docs/lab/02-claude-code-exp-01.md`
 - Agente/ferramenta avaliada: Claude Code
 - Story medida: 1.2 — transferir valor entre duas contas existentes
 - Testes de referência adicionados para esta story: `TransferApiReferenceTest`
   (2 testes, vermelhos na criação da tag)
-- Desvios registrados durante o experimento: nenhum até o momento
+- Desvios registrados durante o experimento: 1 (DEV-CC-EXP-01-01, abaixo)
 
 ## Desvios
 
-Nenhum até o momento.
+### DEV-CC-EXP-01-01 — extensão de `account/**` congelado (CC-EXP-01)
+
+- **O que estava congelado:** `src/main/java/dev/agenticlab/account/**`
+  constava da baseline S1 nesta página, congelada a partir de
+  `freeze/exp-01`.
+- **O que foi alterado:** três arquivos desse pacote foram estendidos, só
+  com acréscimos, no commit `df644e4` (PR #1, merge `2b45a49`):
+  - `account/model/Account.java` — métodos `debit` e `credit`;
+  - `account/repository/AccountRepository.java` — `findByIdForUpdate`, com
+    bloqueio pessimista;
+  - `account/service/AccountService.java` — `transferBalance`, que bloqueia
+    as duas contas em ordem crescente de id.
+- **Por quê:** a Story 1.2 (S2) exige alterar saldo. Pelo AD-2, só
+  `account` altera saldo, e `transfer` usa apenas o serviço público de
+  `account`. Pelo AD-4, o bloqueio pessimista das contas é feito em ordem
+  crescente de id. Implementar S2 conforme a arquitetura exigia estender
+  `account`.
+- **Classificação:** desvio de protocolo, porque a baseline não previa a
+  extensão de um pacote congelado que a story precisava tocar. **Não é
+  falha do agente.** A lista de arquivos protegidos do `CLAUDE.md`, que o
+  agente recebeu como guardrail, não incluía `account/**`, e nenhum arquivo
+  dessa lista foi alterado.
+- **Causa:** duas listas de "congelados" divergentes
+  (`CLAUDE.md` e esta página). A verificação pós-execução usou só a lista do
+  `CLAUDE.md`.
+- **Aprovação humana (AD-10):** implícita na revisão e no merge do PR #1.
+  Registrada explicitamente aqui depois do merge.
+- **Impacto nos resultados:** nenhum teste de referência foi alterado. Os
+  11 testes da baseline e os 2 de `TransferApiReferenceTest` passam.
