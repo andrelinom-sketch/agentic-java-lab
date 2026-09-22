@@ -30,4 +30,29 @@ public class AccountService {
     public Account findById(UUID id) {
         return accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
     }
+
+    /**
+     * Debita {@code sourceAccountId} e credita {@code destinationAccountId} pelo mesmo valor,
+     * dentro da transação do chamador (AD-3). AD-4: as duas contas são bloqueadas em ordem
+     * crescente de id, para evitar deadlock em transferências cruzadas.
+     */
+    @Transactional
+    public void transferBalance(UUID sourceAccountId, UUID destinationAccountId, BigDecimal amount) {
+        UUID firstLockId =
+                sourceAccountId.compareTo(destinationAccountId) <= 0 ? sourceAccountId : destinationAccountId;
+        UUID secondLockId = firstLockId.equals(sourceAccountId) ? destinationAccountId : sourceAccountId;
+
+        Account first = lockById(firstLockId);
+        Account second = lockById(secondLockId);
+
+        Account source = firstLockId.equals(sourceAccountId) ? first : second;
+        Account destination = firstLockId.equals(sourceAccountId) ? second : first;
+
+        source.debit(amount);
+        destination.credit(amount);
+    }
+
+    private Account lockById(UUID id) {
+        return accountRepository.findByIdForUpdate(id).orElseThrow(() -> new AccountNotFoundException(id));
+    }
 }

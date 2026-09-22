@@ -37,4 +37,14 @@ public class Account {
     public BigDecimal getBalance() {
         return balance;
     }
+
+    /** Mutação de saldo restrita a {@code account} (AD-2). */
+    public void debit(BigDecimal amount) {
+        this.balance = this.balance.subtract(amount);
+    }
+
+    /** Mutação de saldo restrita a {@code account} (AD-2). */
+    public void credit(BigDecimal amount) {
+        this.balance = this.balance.add(amount);
+    }
 }
