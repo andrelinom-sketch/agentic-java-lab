@@ -77,7 +77,47 @@ existiam na baseline (`ApplicationSmokeTest`, `AccountApiReferenceTest`,
 
 ## Registro pós-execução
 
-A preencher depois da execução, conforme os campos do diário do laboratório
-(LAB-PLAN.md, seção 9): resultado obtido, intervenções humanas, decisões
-tomadas, o que funcionou bem, o que funcionou mal, aprendizados, próximo
-experimento.
+**Resultado inicial (freeze/exp-01):** 11 testes verdes (`ApplicationSmokeTest`,
+`AccountApiReferenceTest`, `ArchitectureTest`) + 2 vermelhos
+(`TransferApiReferenceTest`), conforme esperado.
+
+**Resultado final:** `./mvnw -B verify` → `BUILD SUCCESS`,
+`Tests run: 13, Failures: 0, Errors: 0, Skipped: 0`. Os 2 testes de
+`TransferApiReferenceTest` passaram a verdes; os 11 testes anteriores
+continuaram verdes, sem alteração.
+
+**Intervenções humanas durante a implementação:** nenhuma. O build passou
+na primeira tentativa, sem iteração de tentativa-erro.
+
+**Arquivos congelados:** nenhum foi alterado (confirmado via `git status
+--short` contra a lista de `CLAUDE.md`).
+
+**Decisões autônomas/inferidas identificadas na revisão humana:**
+
+- Uso de `Instant`/`TIMESTAMPTZ` para `createdAt`, inferido de "ISO-8601 UTC"
+  (Consistency Conventions do spine), sem AD explícito sobre o tipo Java.
+- `@NotNull` nos três campos de `CreateTransferRequest`, além do mínimo
+  literalmente pedido pela Story 1.2.
+- `FOREIGN KEY` de `transfer` para `account` na migration `V2`, não pedida
+  por nenhum AD ou AC.
+- Estilo `debit`/`credit` como métodos de domínio na entidade `Account`, em
+  vez de um setter genérico.
+- Forma de implementar o lock pessimista (`@Lock` + `@Query` JPQL explícita
+  em vez de anotação direta sobre `findById`).
+- Constante `Transfer.STATUS_COMPLETED` como texto fixo, em vez de enum.
+
+**Limitações conhecidas do resultado (aceitas, não corrigidas neste
+experimento):**
+
+- Saldo insuficiente ainda não é rejeitado: a implementação atual pode
+  produzir saldo negativo. Essa regra pertence à Story 1.3.
+- `GET /transfers/{id}` não existe ainda; pertence à Story 1.5.
+- Proteção de concorrência (múltiplas threads) e `CHECK (balance >= 0)` no
+  banco pertencem à Story 1.4.
+
+**Tempo aproximado:** 15–20 minutos, da leitura do prompt pré-declarado até
+`BUILD SUCCESS`.
+
+**Resultado da revisão humana:** implementação aceita dentro do escopo do
+Experimento 01 (Story 1.2), com as limitações acima registradas como
+conhecidas e deliberadamente adiadas para as stories seguintes.
