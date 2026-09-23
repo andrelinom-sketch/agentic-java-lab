@@ -407,7 +407,8 @@ Condições de fracasso e contra-métricas são coisas distintas. As primeiras d
 12. **Termos sem definição no glossário:** Protocolo (base da definição de Experimento e de "Desvio do protocolo"), Experimento medido e CI. Decidir também se Critérios de aceite, ADR e Backlog precisam de entrada própria. *Responsável: Andrelino.*
 13. **FR-2 mais estreito que seu enunciado.** A consequência cita só CI, testes de referência e critérios de aceite, enquanto o enunciado e o FR-5 cobrem toda a baseline. *Responsável: Andrelino.*
 14. **Nota desatualizada no início da §4.** Ela diz que itens inferidos ficam pendentes, mas a §9 indica que já foram aprovados, exceto os do item 15. *Responsável: Andrelino.*
-15. **Consequências inferidas sem marca de origem**, pendentes de aprovação: FR-14 e FR-17 (consultar Conta ou Transferência inexistente é tratado como não encontrado) e NFR-3, 2ª consequência (uma decisão arquitetural sem aprovação registrada é uma violação a ser publicada, ligando-se ao NFR-2). *Responsável: Andrelino.*
+15. **Consequências inferidas sem marca de origem**, pendentes de aprovação: FR-14 (consultar Conta inexistente é tratado como não encontrado) e NFR-3, 2ª consequência (uma decisão arquitetural sem aprovação registrada é uma violação a ser publicada, ligando-se ao NFR-2). *Responsável: Andrelino.*
+    - **FR-17** (consultar Transferência inexistente é tratado como não encontrado). *Resolvido posteriormente por Andrelino:* a consequência foi aprovada pela adoção do AD-7 no Architecture Spine (`GET /transfers/{id}`: 404 se inexistente) e pela aprovação da Story 1.5 no backlog, ambos em 2026-09-21. Registrado neste PRD em 2026-09-23.
 
 ## 9. Índice de premissas
 
@@ -426,5 +427,8 @@ Todo item com Origem **inferido**, com seu estado. Um item aprovado conserva a m
 - SM-C3: não simplificar a rubrica só para aumentar a consistência.
 - SM-C4: não acumular recomendações no playbook só para parecer completo.
 
+**Aprovados posteriormente por Andrelino**
+- FR-17: consultar uma Transferência inexistente é tratado como não encontrado. Aprovado pela adoção do AD-7 e pela aprovação da Story 1.5, em 2026-09-21; registrado em 2026-09-23 (ver §8, item 15).
+
 **Pendentes de aprovação**
-- Consequências inferidas de FR-14, FR-17 e NFR-3 (ver §8, item 15).
+- Consequências inferidas de FR-14 e NFR-3 (ver §8, item 15).
