@@ -1,0 +1,1727 @@
+ ▐▛███▛█   Claude Code v2.1.280
+▝▜██████▀  Opus 5.5 · Claude Pro
+  ▝▝ ▝▝    ~/projetos/agentic-java-lab
+
+  Opus 5.5 is now your default model and it draws down usage faster than Sonnet 5. Switch anytime with /model.
+  1 more notice hidden
+
+❯ Leia CLAUDE.md antes de qualquer alteração.                                   
+                                                                                
+  Implemente a Story 1.3 do backlog (_bmad-output/planning-artifacts/epics.md): 
+  rejeitar solicitações de transferência inválidas sem efeito.                  
+                                                                                
+  O contrato que sua implementação precisa satisfazer já está escrito em        
+  src/test/java/dev/agenticlab/reference/TransferRejectionReferenceTest.java.   
+  Esses testes estão vermelhos porque as rejeições ainda não existem.           
+                                                                                
+  Os artefatos que você pode alterar e os protegidos estão definidos em         
+  docs/lab/baseline.md, na seção do CC-EXP-02. Não altere nenhum artefato       
+  protegido.                                                                    
+                                                                                
+  Além de fazer os testes de referência passarem, escreva seus próprios         
+  testes para a Story 1.3 em src/test/java/dev/agenticlab/transfer/**, fora     
+  do pacote reference. Siga o AD-8: testes HTTP contra PostgreSQL real via      
+  Testcontainers (pode reutilizar                                               
+  dev.agenticlab.reference.support.PostgresContainerConfig, sem alterá-lo) e    
+  testes unitários só para lógica pura. Não duplique os testes de               
+  referência. Cubra os casos que você julgar relevantes além deles.             
+                                                                                
+  Ao terminar, rode ./mvnw -B verify e confirme que todos os testes estão       
+  verdes, incluindo os que já existiam antes da sua alteração.                  
+
+  Searched for 1 pattern, read 1 file, ran 4 shell commands (ctrl+o to expand)
+
+● Li o contexto necessário (CLAUDE.md, LAB-PLAN, Spine, Story 1.3, baseline e
+  pré-declaração com checklist C1-C5) e agora vou implementar as validações:
+  validação de amount no CreateTransferRequest, checagem SAME_ACCOUNT antes de
+  tocar nas contas, ordem determinística de erros para contas ausentes/saldo
+  insuficiente com lock crescente por id, e mapeamento no ApiExceptionHandler
+  para 422.
+
+● Bash(cd /home/andrelino/projetos/agentic-java-lab/src/main/java/dev/agenticlab
+      && cat > account/service/SourceAccountNotFoundException.java <<'EOF'
+      package dev.agent…)
+  ⎿  Created src/main/java/dev/agenticlab/account/service/SourceAccountNotF
+     oundException.java (+13 -0)
+       1 +package dev.agenticlab.account.service;                        
+       2 +                                                               
+       3 +import java.util.UUID;                                         
+       4 +                                                               
+       5 +/** Conta de origem de uma transferência de saldo não existe. *
+         +/                                                              
+       6 +public class SourceAccountNotFoundException extends AccountNotF
+         +oundException {                                                
+       7 +                                                               
+       8 +    private static final long serialVersionUID = 1L;           
+       9 +                                                               
+      10 +    public SourceAccountNotFoundException(UUID accountId) {    
+      11 +        super(accountId);                                      
+      12 +    }                                                          
+      13 +}                                                              
+  ⎿  Created src/main/java/dev/agenticlab/account/service/DestinationAccoun
+     tNotFoundException.java (+13 -0)
+       1 +package dev.agenticlab.account.service;                        
+       2 +                                                               
+       3 +import java.util.UUID;                                         
+       4 +                                                               
+       5 +/** Conta de destino de uma transferência de saldo não existe. 
+         +*/                                                             
+       6 +public class DestinationAccountNotFoundException extends Accoun
+         +tNotFoundException {                                           
+       7 +                                                               
+       8 +    private static final long serialVersionUID = 1L;           
+       9 +                                                               
+      10 +    public DestinationAccountNotFoundException(UUID accountId) 
+         +{                                                              
+      11 +        super(accountId);                                      
+      12 +    }                                                          
+      13 +}                                                              
+  ⎿  Created src/main/java/dev/agenticlab/account/service/InsufficientFunds
+     Exception.java (+12 -0)
+       1 +package dev.agenticlab.account.service;                        
+       2 +                                                               
+       3 +import java.util.UUID;                                         
+       4 +                                                               
+       5 +public class InsufficientFundsException extends RuntimeExceptio
+         +n {                                                            
+       6 +                                                               
+       7 +    private static final long serialVersionUID = 1L;           
+       8 +                                                               
+       9 +    public InsufficientFundsException(UUID accountId) {        
+      10 +        super("Insufficient funds in account: " + accountId);  
+      11 +    }                                                          
+      12 +}                                                              
+  ⎿  Created src/main/java/dev/agenticlab/transfer/service/SameAccountExcep
+     tion.java (+12 -0)
+       1 +package dev.agenticlab.transfer.service;                       
+       2 +                                                               
+       3 +import java.util.UUID;                                         
+       4 +                                                               
+       5 +public class SameAccountException extends RuntimeException {   
+       6 +                                                               
+       7 +    private static final long serialVersionUID = 1L;           
+       8 +                                                               
+       9 +    public SameAccountException(UUID accountId) {              
+      10 +        super("Source and destination must be different account
+         +s: " + accountId);                                             
+      11 +    }                                                          
+      12 +}                                                              
+
+● Classes de exceção criadas. Agora vou alterar o serviço de account, o de
+  transfer, o DTO e o handler.
+
+● Bash(python3 - <<'EOF'
+      import re…)
+  ⎿   .../agenticlab/account/service/AccountService.java | 37 +++++++++++++
+     ++-------
+      .../agenticlab/common/web/ApiExceptionHandler.java | 28 +++++++++++++
+     … +4 lines (ctrl+o to expand)
+  ⎿  Updated
+     src/main/java/dev/agenticlab/account/service/AccountService.java (+25 
+     -12)
+      3  import dev.agenticlab.account.model.Account;
+      4  import dev.agenticlab.account.repository.AccountRepository;
+      5  import java.math.BigDecimal;
+      6 +import java.util.Optional;                                      
+      7  import java.util.UUID;
+      8  import org.springframework.stereotype.Service;
+      9  import org.springframework.transaction.annotation.Transactional;
+     ...
+      35      /**
+      36       * Debita {@code sourceAccountId} e credita {@code destinat
+          ionAccountId} pelo mesmo valor,
+      37       * dentro da transação do chamador (AD-3). AD-4: as duas co
+          ntas são bloqueadas em ordem
+      37 -     * crescente de id, para evitar deadlock em transferências 
+         -cruzadas.                                                      
+      38 +     * crescente de id, para evitar deadlock em transferências 
+         +cruzadas, e o saldo é verificado                               
+      39 +     * depois do bloqueio.                                     
+      40 +     *                                                         
+      41 +     * <p>A existência das contas é verificada depois dos dois 
+         +bloqueios, origem antes de destino,                            
+      42 +     * para que a resposta não dependa da ordem dos ids.       
+      43 +     *                                                         
+      44 +     * @throws SourceAccountNotFoundException se a origem não e
+         +xiste                                                          
+      45 +     * @throws DestinationAccountNotFoundException se o destino
+         + não existe                                                    
+      46 +     * @throws InsufficientFundsException se o saldo da origem 
+         +é menor que {@code amount}                                     
+      47       */
+      48      @Transactional
+      49      public void transferBalance(UUID sourceAccountId, UUID dest
+          inationAccountId, BigDecimal amount) {
+      41 -        UUID firstLockId =                                     
+      42 -                sourceAccountId.compareTo(destinationAccountId)
+         - <= 0 ? sourceAccountId : destinationAccountId;                
+      43 -        UUID secondLockId = firstLockId.equals(sourceAccountId)
+         - ? destinationAccountId : sourceAccountId;                     
+      50 +        boolean sourceFirst = sourceAccountId.compareTo(destina
+         +tionAccountId) <= 0;                                           
+      51 +        UUID firstLockId = sourceFirst ? sourceAccountId : dest
+         +inationAccountId;                                              
+      52 +        UUID secondLockId = sourceFirst ? destinationAccountId 
+         +: sourceAccountId;                                             
+      53  
+      45 -        Account first = lockById(firstLockId);                 
+      46 -        Account second = lockById(secondLockId);               
+      54 +        Optional<Account> first = accountRepository.findByIdFor
+         +Update(firstLockId);                                           
+      55 +        Optional<Account> second = accountRepository.findByIdFo
+         +rUpdate(secondLockId);                                         
+      56  
+      48 -        Account source = firstLockId.equals(sourceAccountId) ? 
+         -first : second;                                                
+      49 -        Account destination = firstLockId.equals(sourceAccountI
+         -d) ? second : first;                                           
+      57 +        Account source =                                       
+      58 +                (sourceFirst ? first : second)                 
+      59 +                        .orElseThrow(() -> new SourceAccountNot
+         +FoundException(sourceAccountId));                              
+     … 16 more lines (ctrl+o to expand)
+  ⎿  Updated
+     src/main/java/dev/agenticlab/transfer/service/TransferService.java (+4
+     -0)
+      25          this.transferRepository = transferRepository;
+      26      }
+      27  
+      28 +    /** @throws SameAccountException se origem e destino são a 
+         +mesma Conta */                                                 
+      29      @Transactional
+      30      public Transfer create(UUID sourceAccountId, UUID destinati
+          onAccountId, BigDecimal amount) {
+      31 +        if (sourceAccountId.equals(destinationAccountId)) {    
+      32 +            throw new SameAccountException(sourceAccountId);   
+      33 +        }                                                      
+      34          accountService.transferBalance(sourceAccountId, destina
+          tionAccountId, amount);
+      35  
+      36          Transfer transfer =
+  ⎿  Updated
+     src/main/java/dev/agenticlab/transfer/web/CreateTransferRequest.java
+     (+7 -2)
+       1  package dev.agenticlab.transfer.web;
+       2  
+       3 +import jakarta.validation.constraints.DecimalMin;              
+       4  import jakarta.validation.constraints.Digits;
+       5  import jakarta.validation.constraints.NotNull;
+       6  import java.math.BigDecimal;
+       7  import java.util.UUID;
+       8  
+       8 -/** AD-5: {@code BigDecimal}, mais de 2 casas decimais é rejeit
+         -ado sem arredondar. */                                         
+       9 +/**                                                            
+      10 + * AD-5: {@code BigDecimal}, mais de 2 casas decimais é rejeita
+         +do sem arredondar. AD-7:                                       
+      11 + * {@code amount <= 0} é entrada inválida (400).               
+      12 + */                                                            
+      13  public record CreateTransferRequest(
+      14          @NotNull UUID sourceAccountId,
+      15          @NotNull UUID destinationAccountId,
+      12 -        @NotNull @Digits(integer = 17, fraction = 2) BigDecimal
+         - amount) {}                                                    
+      16 +        @NotNull @DecimalMin(value = "0.00", inclusive = false)
+         + @Digits(integer = 17, fraction = 2)                           
+      17 +                BigDecimal amount) {}                          
+  ⎿  Updated
+     src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java (+28 
+     -0)
+       1  package dev.agenticlab.common.web;
+       2  
+       3  import dev.agenticlab.account.service.AccountNotFoundException;
+       4 +import dev.agenticlab.account.service.DestinationAccountNotFoun
+         +dException;                                                    
+       5 +import dev.agenticlab.account.service.InsufficientFundsExceptio
+         +n;                                                             
+       6 +import dev.agenticlab.account.service.SourceAccountNotFoundExce
+         +ption;                                                         
+       7 +import dev.agenticlab.transfer.service.SameAccountException;   
+       8  import org.springframework.http.HttpStatus;
+       9  import org.springframework.http.ProblemDetail;
+      10  import org.springframework.http.converter.HttpMessageNotReadabl
+          eException;
+     ...
+      23  
+      24      private static final String VALIDATION_ERROR = "VALIDATION_
+          ERROR";
+      25      private static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NO
+          T_FOUND";
+      26 +    private static final String SOURCE_ACCOUNT_NOT_FOUND = "SOU
+         +RCE_ACCOUNT_NOT_FOUND";                                        
+      27 +    private static final String DESTINATION_ACCOUNT_NOT_FOUND =
+         + "DESTINATION_ACCOUNT_NOT_FOUND";                              
+      28 +    private static final String INSUFFICIENT_FUNDS = "INSUFFICI
+         +ENT_FUNDS";                                                    
+      29 +    private static final String SAME_ACCOUNT = "SAME_ACCOUNT"; 
+      30  
+      31      @ExceptionHandler(AccountNotFoundException.class)
+      32      public ProblemDetail handleAccountNotFound(AccountNotFoundE
+          xception ex) {
+      33          return problem(HttpStatus.NOT_FOUND, ex.getMessage(), A
+          CCOUNT_NOT_FOUND);
+      34      }
+      35  
+      36 +    @ExceptionHandler(SourceAccountNotFoundException.class)    
+      37 +    public ProblemDetail handleSourceAccountNotFound(SourceAcco
+         +untNotFoundException ex) {                                     
+      38 +        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getM
+         +essage(), SOURCE_ACCOUNT_NOT_FOUND);                           
+      39 +    }                                                          
+      40 +                                                               
+      41 +    @ExceptionHandler(DestinationAccountNotFoundException.class
+         +)                                                              
+      42 +    public ProblemDetail handleDestinationAccountNotFound(Desti
+         +nationAccountNotFoundException ex) {                           
+      43 +        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getM
+         +essage(), DESTINATION_ACCOUNT_NOT_FOUND);                      
+      44 +    }                                                          
+      45 +                                                               
+      46 +    @ExceptionHandler(InsufficientFundsException.class)        
+      47 +    public ProblemDetail handleInsufficientFunds(InsufficientFu
+         +ndsException ex) {                                             
+      48 +        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getM
+         +essage(), INSUFFICIENT_FUNDS);                                 
+      49 +    }                                                          
+      50 +                                                               
+      51 +    @ExceptionHandler(SameAccountException.class)              
+      52 +    public ProblemDetail handleSameAccount(SameAccountException
+         + ex) {                                                         
+     … 6 more lines (ctrl+o to expand)
+
+● Código principal alterado. Agora os testes do agente, em
+  src/test/java/dev/agenticlab/transfer/.
+
+● Bash(mkdir -p /home/andrelino/projetos/agentic-java-lab/src/test/java/dev/agen
+      ticlab/transfer && cat >
+      /home/andrelino/projetos/agentic-java-lab/src/test/java/dev/ag…)
+  ⎿  OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot l
+     oader classes because bootstrap classpath has been appended
+     WARNING: A Java agent has been loaded dynamically (/home/andrelino/.m2
+     … +132 lines (ctrl+o to expand)
+  ⎿  Created
+     src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java
+     (+381 -0)
+        1 +package dev.agenticlab.transfer;                              
+        2 +                                                              
+        3 +import static org.assertj.core.api.Assertions.assertThat;     
+        4 +                                                              
+        5 +import dev.agenticlab.reference.support.PostgresContainerConfi
+          +g;                                                            
+        6 +import java.math.BigDecimal;                                  
+        7 +import java.util.HashMap;                                     
+        8 +import java.util.Map;                                         
+        9 +import java.util.UUID;                                        
+       10 +import org.junit.jupiter.api.Test;                            
+       11 +import org.springframework.beans.factory.annotation.Autowired;
+       12 +import org.springframework.boot.test.context.SpringBootTest;  
+       13 +import org.springframework.boot.test.context.SpringBootTest.We
+          +bEnvironment;                                                 
+       14 +import org.springframework.boot.test.web.client.TestRestTempla
+          +te;                                                           
+       15 +import org.springframework.context.annotation.Import;         
+       16 +import org.springframework.core.ParameterizedTypeReference;   
+       17 +import org.springframework.http.HttpEntity;                   
+       18 +import org.springframework.http.HttpHeaders;                  
+       19 +import org.springframework.http.HttpMethod;                   
+       20 +import org.springframework.http.HttpStatus;                   
+       21 +import org.springframework.http.MediaType;                    
+       22 +import org.springframework.http.ResponseEntity;               
+       23 +import org.springframework.jdbc.core.JdbcTemplate;            
+       24 +                                                              
+       25 +/**                                                           
+       26 + * Testes do agente para a Story 1.3 (AD-8): HTTP contra Postg
+          +reSQL real. Cobrem casos além de                              
+       27 + * {@code TransferRejectionReferenceTest}: limites de valor, e
+          +ntrada malformada, precedência entre                          
+       28 + * violações simultâneas, independência da ordem de bloqueio (
+          +AD-4) e recuperação após rejeição.                            
+       29 + */                                                           
+       30 +@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)  
+       31 +@Import(PostgresContainerConfig.class)                        
+       32 +class TransferRejectionApiTest {                              
+       33 +                                                              
+       34 +    private static final ParameterizedTypeReference<Map<String
+          +, Object>> JSON_OBJECT =                                      
+       35 +            new ParameterizedTypeReference<>() {};            
+       36 +                                                              
+       37 +    @Autowired private TestRestTemplate restTemplate;         
+       38 +                                                              
+       39 +    @Autowired private JdbcTemplate jdbcTemplate;             
+       40 +                                                              
+     … 341 more lines (ctrl+o to expand)
+  ⎿  (timeout 10m)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Todos os testes passaram. Agora confirmo que nenhum artefato protegido foi
+  alterado.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● A Story 1.3 está implementada e ./mvnw -B verify passou: BUILD SUCCESS, 37 
+  testes, 0 falhas. O build compilou com -Xlint:all -Werror, então não há
+  warnings.
+
+  - TransferRejectionReferenceTest: os 6 testes passaram de vermelhos para
+    verdes.
+  - Os 13 testes que já existiam continuam verdes (Smoke 3, Account 5,
+    Architecture 3, TransferApi 2).
+  - Meus testes: 18 novos em TransferRejectionApiTest, todos verdes.
+  - Artefatos protegidos: nenhum foi alterado. Todos os arquivos que mudei estão
+    na lista de modificáveis do CC-EXP-02, e git diff freeze/exp-02 -- 
+    src/test/java/dev/agenticlab/reference sai vazio.
+
+  O que mudou
+
+  - transfer/web/CreateTransferRequest: um amount menor ou igual a zero é
+    rejeitado com 400 VALIDATION_ERROR, antes de qualquer acesso ao banco.
+  - transfer/service/TransferService: se origem e destino são a mesma conta,
+    lança SameAccountException antes de tocar nas contas.
+  - account/service/AccountService.transferBalance: as contas continuam
+    bloqueadas em ordem crescente de id. Depois do bloqueio, verifica nesta
+    ordem:
+    a. se a origem existe;
+    b. se o destino existe;
+    c. se o saldo da origem cobre o valor (o saldo é verificado depois do
+       bloqueio, como pede o AD-4).
+
+    As duas exceções novas de conta inexistente estendem
+    AccountNotFoundException. Assim, GET /accounts/{id} continua respondendo 404
+    ACCOUNT_NOT_FOUND.
+  - common/web/ApiExceptionHandler: responde 422 com SOURCE_ACCOUNT_NOT_FOUND,
+    DESTINATION_ACCOUNT_NOT_FOUND, INSUFFICIENT_FUNDS e SAME_ACCOUNT.
+
+  Quando uma solicitação tem mais de um erro, a resposta é sempre a mesma:
+  entrada inválida (400), depois mesma conta, origem inexistente, destino
+  inexistente e por último saldo insuficiente. Essa ordem não depende da ordem
+  dos ids. Toda rejeição de regra de negócio acontece dentro da transação e
+  desfaz tudo, então nada é gravado e nenhum saldo muda.
+
+  Meus testes 
+  (src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java)
+
+  São testes HTTP contra PostgreSQL real e reutilizam PostgresContainerConfig
+  sem alterá-lo. Cada rejeição também confirma que nenhuma transferência foi
+  gravada e que os saldos não mudaram.
+
+  - Valores no limite: transferir o saldo inteiro é aceito e a origem fica com
+    0; 0.01 é aceito; uma conta com saldo zero é rejeitada; 10.005 é rejeitado
+    com 400, sem arredondar.
+  - Entrada malformada: cada um dos três campos ausente, id que não é UUID e
+    JSON quebrado respondem 400.
+  - Mais de um erro na mesma solicitação: confirma a ordem de prioridade
+    descrita acima, inclusive quando as duas contas não existem, testado nas
+    duas ordens de id.
+  - Ordem de bloqueio: o saldo insuficiente é verificado na origem, esteja ela
+    em primeiro ou em segundo lugar no bloqueio. O destino tem saldo alto de
+    propósito, para que o teste falhe se a verificação olhar a conta errada.
+  - Recuperação: depois de uma rejeição, uma transferência válida entre as
+    mesmas contas funciona. Uma conta desconhecida numa transferência não muda o
+    404 de GET /accounts/{id}.
+
+  Não escrevi testes unitários: toda a lógica nova depende do banco e do
+  bloqueio, e nenhum trecho é lógica pura isolável.
+
+  Para o registro do experimento
+
+  - Checklist lida: li docs/lab/02-claude-code-exp-02.md inteiro, inclusive a
+    checklist C1–C5. Os testes cobrem C1 a C5, mas isso aconteceu depois de eu
+    conhecer a checklist. É a limitação que a pré-declaração já previa.
+  - Sem commit: não fiz commit, porque você não pediu.
+
+✻ Brewed for 3m 56s · done 9:36
+
+※ recap: A Story 1.3 (rejeitar transferências inválidas) está implementada, com 18 testes próprios, e `./mvnw -B verify` passou com os 37 testes verdes, sem tocar em artefatos protegidos. Falta revisar a alteração e decidir se faço o commit na branch do experimento. (disable recaps in /config)
+
+❯ Não altere mais nenhum arquivo.                                               
+                                                                                
+  Estamos encerrando a fase de implementação do CC-EXP-02.                      
+                                                                                
+  Mostre:                                                                       
+                                                                                
+  git status --short                                                            
+  git diff --stat freeze/exp-02                                                 
+  lista dos arquivos alterados/criados desde freeze/exp-02                      
+  resumo objetivo das decisões técnicas que você tomou e que não estavam        
+  explicitamente determinadas pelos critérios de aceite ou pela Architecture    
+  Spine                                                                         
+  confirme novamente o resultado de:                                            
+  git diff freeze/exp-02 -- src/test/java/dev/agenticlab/reference              
+                                                                                
+  Não faça commit.                                                              
+  Não corrija nem refatore nada.                                                
+  Não altere documentação.                                                      
+  Pare depois de apresentar essas evidências.                                   
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Nenhum arquivo foi alterado nesta etapa e não fiz commit. Apenas executei os
+  comandos de leitura do git abaixo.
+
+  git status --short
+
+   M src/main/java/dev/agenticlab/account/service/AccountService.java
+   M src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java
+   M src/main/java/dev/agenticlab/transfer/service/TransferService.java
+   M src/main/java/dev/agenticlab/transfer/web/CreateTransferRequest.java
+  ?? src/main/java/dev/agenticlab/account/service/DestinationAccountNotFoundExce
+  ption.java
+  ?? 
+  src/main/java/dev/agenticlab/account/service/InsufficientFundsException.java
+  ?? src/main/java/dev/agenticlab/account/service/SourceAccountNotFoundException
+  .java
+  ?? src/main/java/dev/agenticlab/transfer/service/SameAccountException.java
+  ?? src/test/java/dev/agenticlab/transfer/
+
+  git diff --stat freeze/exp-02
+
+   .../agenticlab/account/service/AccountService.java | 37 
+  +++++++++++++++-------
+   .../agenticlab/common/web/ApiExceptionHandler.java | 28 ++++++++++++++++
+   .../transfer/service/TransferService.java          |  4 +++
+   .../transfer/web/CreateTransferRequest.java        |  9 ++++--
+   4 files changed, 64 insertions(+), 14 deletions(-)
+
+  Os 5 arquivos novos ainda não estão no índice do git, por isso não entram no
+  --stat.
+
+  Arquivos alterados e criados desde freeze/exp-02
+
+  Alterados (4):
+  - src/main/java/dev/agenticlab/account/service/AccountService.java
+  - src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java
+  - src/main/java/dev/agenticlab/transfer/service/TransferService.java
+  - src/main/java/dev/agenticlab/transfer/web/CreateTransferRequest.java
+
+  Criados (5):
+  - src/main/java/dev/agenticlab/account/service/SourceAccountNotFoundException.
+    java
+  - src/main/java/dev/agenticlab/account/service/DestinationAccountNotFoundExcep
+    tion.java
+  - src/main/java/dev/agenticlab/account/service/InsufficientFundsException.java
+  - src/main/java/dev/agenticlab/transfer/service/SameAccountException.java
+  - src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java
+
+  Todos estão na lista "Modificável nesta story" do CC-EXP-02 em
+  docs/lab/baseline.md.
+
+  Decisões técnicas não determinadas pelos critérios de aceite nem pelo Spine
+
+  1. Ordem de prioridade quando há mais de um erro: entrada inválida (400),
+     depois mesma conta, origem inexistente, destino inexistente e saldo
+     insuficiente (todos 422). A story e o Spine não definem essa ordem.
+  2. Mesma conta antes de existência: a verificação de mesma conta roda antes de
+     consultar o banco. Por isso, a mesma conta inexistente como origem e
+     destino responde SAME_ACCOUNT, e não SOURCE_ACCOUNT_NOT_FOUND.
+  3. Existência verificada depois dos dois bloqueios: a origem é verificada
+     antes do destino, para que a resposta não dependa da ordem dos UUIDs.
+     Antes, lockById falhava na primeira conta bloqueada. Removi lockById e
+     passei a usar Optional com os dois bloqueios feitos antes de qualquer
+     verificação. Com isso, quando uma conta não existe, a outra ainda é
+     bloqueada: há um SELECT … FOR UPDATE a mais nesse caso de erro.
+  4. Lugar de cada regra:
+     - saldo e existência ficam em AccountService, do pacote account;
+     - mesma conta fica em TransferService, como regra da transferência;
+     - amount > 0 é validado no DTO com @DecimalMin(value = "0.00", inclusive = 
+       false).
+  5. Hierarquia de exceções: Source… e DestinationAccountNotFoundException
+     estendem AccountNotFoundException. O Spring escolhe o handler mais
+     específico, então GET /accounts/{id} continua respondendo 404
+     ACCOUNT_NOT_FOUND. Isso depende da regra de resolução do Spring, não de um
+     mapeamento explícito.
+  6. Verificação de saldo no serviço, não em Account.debit: debit continua sem
+     nenhuma proteção. Outro caminho que chame debit diretamente não verifica o
+     saldo.
+  7. Nova dependência de common para transfer: ApiExceptionHandler importa
+     SameAccountException. O ArchUnit não encontrou ciclo, porque transfer não
+     depende de common.
+  8. Texto do detail no Problem Details: usa a mensagem da exceção e inclui o
+     UUID da conta, por exemplo "Account not found: <uuid>". Não inclui type nem
+     instance personalizados.
+  9. Testes que alteram o banco direto:
+     insufficientFundsIsCheckedOnSourceWhateverItsLockPosition ajusta saldos com
+     UPDATE via JdbcTemplate para controlar qual conta é bloqueada primeiro. As
+     contas continuam sendo criadas pela API.
+  10. Nenhum teste unitário: não escrevi testes unitários, porque não há lógica
+      pura que valha isolar.
+  11. Checklist lida: li a checklist C1–C5 da pré-declaração antes de escrever
+      os testes. Isso já consta como limitação prevista do experimento.
+
+  git diff freeze/exp-02 -- src/test/java/dev/agenticlab/reference
+
+  A saída é vazia (0 linhas). Também não há arquivo novo não rastreado em
+  reference (0 arquivos).
+
+✻ Brewed for 24s · done 9:40
+
+❯ Não altere nenhum arquivo.                                                    
+                                                                                
+  Quero revisar a implementação antes do commit.                                
+                                                                                
+  Mostre o conteúdo completo atual destes arquivos:                             
+                                                                                
+  AccountService.java                                                           
+  TransferService.java                                                          
+  CreateTransferRequest.java                                                    
+  ApiExceptionHandler.java                                                      
+  SourceAccountNotFoundException.java                                           
+  DestinationAccountNotFoundException.java                                      
+  InsufficientFundsException.java                                               
+  SameAccountException.java                                                     
+                                                                                
+  Para AccountService.transferBalance, explique especificamente:                
+                                                                                
+  como os dois UUIDs são ordenados;                                             
+  quantos SELECT ... FOR UPDATE são executados;                                 
+  o que acontece quando somente origem não existe;                              
+  quando somente destino não existe;                                            
+  quando ambas não existem;                                                     
+  por que você optou por bloquear a conta existente antes de concluir que a     
+  outra não existe.                                                             
+                                                                                
+  Não proponha correções ainda.                                                 
+  Não refatore.                                                                 
+  Não execute alterações.                                                       
+  Não faça commit.                                                              
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Nenhum arquivo foi alterado. Apenas li os arquivos com cat.
+
+  Conteúdo atual dos arquivos
+
+  account/service/AccountService.java
+
+  package dev.agenticlab.account.service;
+
+  import dev.agenticlab.account.model.Account;
+  import dev.agenticlab.account.repository.AccountRepository;
+  import java.math.BigDecimal;
+  import java.util.Optional;
+  import java.util.UUID;
+  import org.springframework.stereotype.Service;
+  import org.springframework.transaction.annotation.Transactional;
+
+  /**
+   * Serviço público de {@code account} (AD-2). Nenhum outro pacote acessa
+   * {@link AccountRepository} ou {@link Account} diretamente para alterar 
+  saldo.
+   */
+  @Service
+  public class AccountService {
+
+      private final AccountRepository accountRepository;
+
+      public AccountService(AccountRepository accountRepository) {
+          this.accountRepository = accountRepository;
+      }
+
+      @Transactional
+      public Account create(BigDecimal initialBalance) {
+          Account account = new Account(UUID.randomUUID(), initialBalance);
+          return accountRepository.save(account);
+      }
+
+      @Transactional(readOnly = true)
+      public Account findById(UUID id) {
+          return accountRepository.findById(id).orElseThrow(() -> new
+  AccountNotFoundException(id));
+      }
+
+      /**
+       * Debita {@code sourceAccountId} e credita {@code destinationAccountId} 
+  pelo mesmo valor,
+       * dentro da transação do chamador (AD-3). AD-4: as duas contas são 
+  bloqueadas em ordem
+       * crescente de id, para evitar deadlock em transferências cruzadas, e o 
+  saldo é verificado
+       * depois do bloqueio.
+       *
+       * <p>A existência das contas é verificada depois dos dois bloqueios, 
+  origem antes de destino,
+       * para que a resposta não dependa da ordem dos ids.
+       *
+       * @throws SourceAccountNotFoundException se a origem não existe
+       * @throws DestinationAccountNotFoundException se o destino não existe
+       * @throws InsufficientFundsException se o saldo da origem é menor que 
+  {@code amount}
+       */
+      @Transactional
+      public void transferBalance(UUID sourceAccountId, UUID
+  destinationAccountId, BigDecimal amount) {
+          boolean sourceFirst = sourceAccountId.compareTo(destinationAccountId)
+  <= 0;
+          UUID firstLockId = sourceFirst ? sourceAccountId :
+  destinationAccountId;
+          UUID secondLockId = sourceFirst ? destinationAccountId :
+  sourceAccountId;
+
+          Optional<Account> first =
+  accountRepository.findByIdForUpdate(firstLockId);
+          Optional<Account> second =
+  accountRepository.findByIdForUpdate(secondLockId);
+
+          Account source =
+                  (sourceFirst ? first : second)
+                          .orElseThrow(() -> new
+  SourceAccountNotFoundException(sourceAccountId));
+          Account destination =
+                  (sourceFirst ? second : first)
+                          .orElseThrow(() -> new
+  DestinationAccountNotFoundException(destinationAccountId));
+
+          if (source.getBalance().compareTo(amount) < 0) {
+              throw new InsufficientFundsException(sourceAccountId);
+          }
+
+          source.debit(amount);
+          destination.credit(amount);
+      }
+  }
+
+  transfer/service/TransferService.java
+
+  package dev.agenticlab.transfer.service;
+
+  import dev.agenticlab.account.service.AccountService;
+  import dev.agenticlab.transfer.model.Transfer;
+  import dev.agenticlab.transfer.repository.TransferRepository;
+  import java.math.BigDecimal;
+  import java.time.Instant;
+  import java.util.UUID;
+  import org.springframework.stereotype.Service;
+  import org.springframework.transaction.annotation.Transactional;
+
+  /**
+   * AD-2: usa apenas o serviço público de {@code account}, nunca seu
+   * repository nem seu model. AD-3: débito, crédito e registro em uma única
+   * transação atômica.
+   */
+  @Service
+  public class TransferService {
+
+      private final AccountService accountService;
+      private final TransferRepository transferRepository;
+
+      public TransferService(AccountService accountService, TransferRepository
+  transferRepository) {
+          this.accountService = accountService;
+          this.transferRepository = transferRepository;
+      }
+
+      /** @throws SameAccountException se origem e destino são a mesma Conta */
+      @Transactional
+      public Transfer create(UUID sourceAccountId, UUID destinationAccountId,
+  BigDecimal amount) {
+          if (sourceAccountId.equals(destinationAccountId)) {
+              throw new SameAccountException(sourceAccountId);
+          }
+          accountService.transferBalance(sourceAccountId, destinationAccountId,
+  amount);
+
+          Transfer transfer =
+                  new Transfer(
+                          UUID.randomUUID(),
+                          sourceAccountId,
+                          destinationAccountId,
+                          amount,
+                          Transfer.STATUS_COMPLETED,
+                          Instant.now());
+          return transferRepository.save(transfer);
+      }
+  }
+
+  transfer/web/CreateTransferRequest.java
+
+  package dev.agenticlab.transfer.web;
+
+  import jakarta.validation.constraints.DecimalMin;
+  import jakarta.validation.constraints.Digits;
+  import jakarta.validation.constraints.NotNull;
+  import java.math.BigDecimal;
+  import java.util.UUID;
+
+  /**
+   * AD-5: {@code BigDecimal}, mais de 2 casas decimais é rejeitado sem 
+  arredondar. AD-7:
+   * {@code amount <= 0} é entrada inválida (400).
+   */
+  public record CreateTransferRequest(
+          @NotNull UUID sourceAccountId,
+          @NotNull UUID destinationAccountId,
+          @NotNull @DecimalMin(value = "0.00", inclusive = false)
+  @Digits(integer = 17, fraction = 2)
+                  BigDecimal amount) {}
+
+  common/web/ApiExceptionHandler.java
+
+  package dev.agenticlab.common.web;
+
+  import dev.agenticlab.account.service.AccountNotFoundException;
+  import dev.agenticlab.account.service.DestinationAccountNotFoundException;
+  import dev.agenticlab.account.service.InsufficientFundsException;
+  import dev.agenticlab.account.service.SourceAccountNotFoundException;
+  import dev.agenticlab.transfer.service.SameAccountException;
+  import org.springframework.http.HttpStatus;
+  import org.springframework.http.ProblemDetail;
+  import org.springframework.http.converter.HttpMessageNotReadableException;
+  import org.springframework.web.bind.MethodArgumentNotValidException;
+  import org.springframework.web.bind.annotation.ExceptionHandler;
+  import org.springframework.web.bind.annotation.RestControllerAdvice;
+  import
+  org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+  /**
+   * Único tratador global de erros (AD-7, AD-1 "common" é o único pacote
+   * transversal). Corpo em Problem Details (RFC 9457) com um código estável
+   * na propriedade {@code code}.
+   */
+  @RestControllerAdvice
+  public class ApiExceptionHandler {
+
+      private static final String VALIDATION_ERROR = "VALIDATION_ERROR";
+      private static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
+      private static final String SOURCE_ACCOUNT_NOT_FOUND =
+  "SOURCE_ACCOUNT_NOT_FOUND";
+      private static final String DESTINATION_ACCOUNT_NOT_FOUND =
+  "DESTINATION_ACCOUNT_NOT_FOUND";
+      private static final String INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
+      private static final String SAME_ACCOUNT = "SAME_ACCOUNT";
+
+      @ExceptionHandler(AccountNotFoundException.class)
+      public ProblemDetail handleAccountNotFound(AccountNotFoundException ex) {
+          return problem(HttpStatus.NOT_FOUND, ex.getMessage(),
+  ACCOUNT_NOT_FOUND);
+      }
+
+      @ExceptionHandler(SourceAccountNotFoundException.class)
+      public ProblemDetail
+  handleSourceAccountNotFound(SourceAccountNotFoundException ex) {
+          return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(),
+  SOURCE_ACCOUNT_NOT_FOUND);
+      }
+
+      @ExceptionHandler(DestinationAccountNotFoundException.class)
+      public ProblemDetail
+  handleDestinationAccountNotFound(DestinationAccountNotFoundException ex) {
+          return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(),
+  DESTINATION_ACCOUNT_NOT_FOUND);
+      }
+
+      @ExceptionHandler(InsufficientFundsException.class)
+      public ProblemDetail handleInsufficientFunds(InsufficientFundsException
+  ex) {
+          return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(),
+  INSUFFICIENT_FUNDS);
+      }
+
+      @ExceptionHandler(SameAccountException.class)
+      public ProblemDetail handleSameAccount(SameAccountException ex) {
+          return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(),
+  SAME_ACCOUNT);
+      }
+
+      @ExceptionHandler(MethodArgumentNotValidException.class)
+      public ProblemDetail handleValidation(MethodArgumentNotValidException ex)
+  {
+          return problem(HttpStatus.BAD_REQUEST, "Validation failed",
+  VALIDATION_ERROR);
+      }
+
+      @ExceptionHandler(HttpMessageNotReadableException.class)
+      public ProblemDetail handleMalformedBody(HttpMessageNotReadableException
+  ex) {
+          return problem(HttpStatus.BAD_REQUEST, "Malformed request body",
+  VALIDATION_ERROR);
+      }
+
+      @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+      public ProblemDetail
+  handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+          return problem(
+                  HttpStatus.BAD_REQUEST,
+                  "Invalid value for parameter '" + ex.getName() + "'",
+                  VALIDATION_ERROR);
+      }
+
+      private ProblemDetail problem(HttpStatus status, String detail, String
+  code) {
+          ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status,
+  detail);
+          problemDetail.setProperty("code", code);
+          return problemDetail;
+      }
+  }
+
+  account/service/SourceAccountNotFoundException.java
+
+  package dev.agenticlab.account.service;
+
+  import java.util.UUID;
+
+  /** Conta de origem de uma transferência de saldo não existe. */
+  public class SourceAccountNotFoundException extends AccountNotFoundException {
+
+      private static final long serialVersionUID = 1L;
+
+      public SourceAccountNotFoundException(UUID accountId) {
+          super(accountId);
+      }
+  }
+
+  account/service/DestinationAccountNotFoundException.java
+
+  package dev.agenticlab.account.service;
+
+  import java.util.UUID;
+
+  /** Conta de destino de uma transferência de saldo não existe. */
+  public class DestinationAccountNotFoundException extends
+  AccountNotFoundException {
+
+      private static final long serialVersionUID = 1L;
+
+      public DestinationAccountNotFoundException(UUID accountId) {
+          super(accountId);
+      }
+  }
+
+  account/service/InsufficientFundsException.java
+
+  package dev.agenticlab.account.service;
+
+  import java.util.UUID;
+
+  public class InsufficientFundsException extends RuntimeException {
+
+      private static final long serialVersionUID = 1L;
+
+      public InsufficientFundsException(UUID accountId) {
+          super("Insufficient funds in account: " + accountId);
+      }
+  }
+
+  transfer/service/SameAccountException.java
+
+  package dev.agenticlab.transfer.service;
+
+  import java.util.UUID;
+
+  public class SameAccountException extends RuntimeException {
+
+      private static final long serialVersionUID = 1L;
+
+      public SameAccountException(UUID accountId) {
+          super("Source and destination must be different accounts: " +
+  accountId);
+      }
+  }
+
+  AccountService.transferBalance em detalhe
+
+  Como os dois UUIDs são ordenados
+
+  - A ordem vem de sourceAccountId.compareTo(destinationAccountId) <= 0. Se o
+    resultado for verdadeiro, a origem é bloqueada primeiro; se for falso, o
+    destino.
+  - Essa comparação já existia na versão do CC-EXP-01. Eu mantive o mesmo
+    critério.
+
+  Ponto importante para a revisão: java.util.UUID.compareTo compara os 64 bits
+  altos e depois os 64 bits baixos como long com sinal. Por isso, essa ordem não
+  coincide com a ordem de uuid no PostgreSQL, que compara byte a byte, sem
+  sinal.
+
+  - Exemplo: um UUID que começa com 8–f é "menor" em Java do que um que começa
+    com 0–7. No banco, é o contrário.
+  - Deadlock: como todo o código usa o mesmo comparador, a ordem de bloqueio é
+    consistente entre transações. Isso é o que evita deadlock entre
+    transferências cruzadas.
+  - AD-4: mesmo assim, essa ordem não é a "ordem crescente de id" do banco no
+    sentido literal.
+
+  Isso também afeta um dos meus testes.
+  unknownDestinationIsReportedWhateverItsLockPosition usa new UUID(0L, 1L) e new
+  UUID(-1L, -1L) supondo que eles caiam em lados opostos de um UUID aleatório.
+  Pela comparação com sinal, isso não é garantido: dependendo do UUID gerado
+  para a origem, os dois casos podem cair do mesmo lado. O teste passa, mas não
+  garante que cobre as duas posições de bloqueio. Os UUIDs do teste
+  unknownSourceIsReportedFirst… ((0,1) e (MAX,MAX)) ficam em ordem correta.
+
+  Quantos SELECT … FOR UPDATE são executados
+
+  Sempre dois, em todos os caminhos. As duas chamadas a findByIdForUpdate (uma
+  consulta JPQL com PESSIMISTIC_WRITE) acontecem antes de qualquer verificação.
+
+  - Consultas JPQL sempre vão ao banco, mesmo que a entidade já esteja no
+    contexto de persistência.
+  - O caso origem = destino não chega a este método pela API, porque
+    TransferService rejeita antes. Se este método fosse chamado direto com o
+    mesmo id, também haveria dois SELECTs.
+
+  Só a origem não existe
+
+  1. Os dois SELECT … FOR UPDATE rodam. A linha do destino fica bloqueada; o
+     SELECT da origem não retorna linha e não bloqueia nada.
+  2. (sourceFirst ? first : second) está vazio, então é lançada
+     SourceAccountNotFoundException.
+  3. A exceção é uma RuntimeException e atravessa os métodos @Transactional. A
+     transação é desfeita e o bloqueio do destino é liberado. Nenhum saldo é
+     tocado e nenhuma Transfer é criada.
+  4. O handler responde 422 com SOURCE_ACCOUNT_NOT_FOUND.
+
+  Só o destino não existe
+
+  1. Os dois SELECTs rodam. A linha da origem fica bloqueada; o destino não
+     bloqueia nada.
+  2. A origem é encontrada.
+  3. (sourceFirst ? second : first) está vazio, então é lançada
+     DestinationAccountNotFoundException.
+  4. A transação é desfeita e o bloqueio é liberado. O saldo nem chega a ser
+     verificado. O handler responde 422 com DESTINATION_ACCOUNT_NOT_FOUND.
+
+  As duas contas não existem
+
+  1. Os dois SELECTs rodam e nenhum bloqueia linha.
+  2. A origem é verificada primeiro, então é lançada
+     SourceAccountNotFoundException, seja qual for a ordem dos ids.
+  3. O handler responde 422 com SOURCE_ACCOUNT_NOT_FOUND.
+
+  Por que bloquear a conta existente antes de concluir que a outra não existe
+
+  A razão foi o determinismo do código de erro.
+
+  - Se eu parasse no primeiro bloqueio que falhasse, como fazia o lockById
+    anterior: com as duas contas inexistentes, o código retornado dependeria de
+    qual UUID é menor. Às vezes seria SOURCE…, às vezes DESTINATION….
+  - Para sempre dar prioridade à origem, preciso saber se a origem existe mesmo
+    quando ela é a segunda da ordem. Isso exige executar a segunda consulta.
+  - Escolhi executar essa segunda consulta pelo mesmo caminho com bloqueio, em
+    vez de criar uma consulta sem bloqueio. Assim fica um fluxo único que sempre
+    bloqueia em ordem fixa (AD-4) e depois verifica.
+  - O custo: nos casos de erro, a conta existente fica bloqueada até o rollback,
+    o que é um intervalo curto. Também há um SELECT … FOR UPDATE que não seria
+    necessário para rejeitar a solicitação.
+
+  Não pesei a alternativa de verificar a existência antes de bloquear. Escolhi o
+  caminho único por simplicidade e para respeitar a ordem do AD-4.
+
+✻ Baked for 1m 3s · done 9:43
+
+※ recap: Story 1.3 (rejeitar transferências inválidas) está implementada, com os 37 testes verdes e nada commitado, e você está revisando o código antes do commit. Próximo passo: você decidir se a ordenação por `UUID.compareTo` e o teste frágil de posição de bloqueio precisam de ajuste. (disable recaps in /config)
+
+❯ Revisão humana concluída.                                                     
+                                                                                
+  A implementação funcional está aprovada para este experimento e a decisão de  
+  realizar os dois locks antes das verificações será mantida e registrada como  
+  decisão autônoma/trade-off.                                                   
+                                                                                
+  Entretanto, durante a revisão você identificou uma fragilidade no seu próprio 
+  teste unknownDestinationIsReportedWhateverItsLockPosition: os UUIDs           
+  escolhidos não garantem que os cenários exercitem as duas posições            
+  pretendidas segundo UUID.compareTo().                                         
+                                                                                
+  Corrija somente esse problema nos testes produzidos por você, de forma que o  
+  teste realmente garanta as duas posições de ordenação que pretende verificar. 
+                                                                                
+  Não altere código de produção.                                                
+  Não altere testes de referência.                                              
+  Não altere documentação.                                                      
+  Não faça commit.                                                              
+                                                                                
+  Depois execute ./mvnw -B verify e informe:                                    
+                                                                                
+  exatamente o que mudou no teste;                                              
+  por que agora as duas posições são garantidas;                                
+  quantidade total de testes;                                                   
+  resultado do build;                                                           
+  git status --short.                                                           
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java)
+  ⎿  Added 8 lines, removed 2 lines
+      246      @Test
+      247      void unknownDestinationIsReportedWhateverItsLockPosition()
+            {
+      248          UUID sourceId = createAccount("100.00");
+      249 +        // Extremos de UUID.compareTo (comparação com sinal): 
+          +nenhum UUID v4 é igual a eles, porque                         
+      250 +        // o nibble de versão (4) difere; o destino fica, com 
+          +certeza, antes e depois da origem.                            
+      251 +        UUID lowestDestination = new UUID(Long.MIN_VALUE, Long
+          +.MIN_VALUE);                                                  
+      252 +        UUID highestDestination = new UUID(Long.MAX_VALUE, Lon
+          +g.MAX_VALUE);                                                 
+      253 +        assertThat(lowestDestination.compareTo(sourceId)).isNe
+          +gative();                                                     
+      254 +        assertThat(highestDestination.compareTo(sourceId)).isP
+          +ositive();                                                    
+      255  
+      256          assertRejectedWithoutEffect(
+      251 -                body(sourceId, new UUID(0L, 1L), "10.00"),    
+      257 +                body(sourceId, lowestDestination, "10.00"),   
+      258                  HttpStatus.UNPROCESSABLE_ENTITY,
+      259                  "DESTINATION_ACCOUNT_NOT_FOUND",
+      260                  sourceId,
+      261                  sourceId);
+      262          assertRejectedWithoutEffect(
+      257 -                body(sourceId, new UUID(-1L, -1L), "10.00"),  
+      263 +                body(sourceId, highestDestination, "10.00"),  
+      264                  HttpStatus.UNPROCESSABLE_ENTITY,
+      265                  "DESTINATION_ACCOUNT_NOT_FOUND",
+      266                  sourceId,
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Corrigi o teste unknownDestinationIsReportedWhateverItsLockPosition, que agora
+  garante as duas posições de bloqueio. ./mvnw -B verify terminou com BUILD 
+  SUCCESS: 37 testes, 0 falhas, 0 erros, 0 ignorados. Só esse teste mudou.
+
+  Exatamente o que mudou no teste
+
+  Em src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java, no
+  método unknownDestinationIsReportedWhateverItsLockPosition:
+
+  - Destinos inexistentes: new UUID(0L, 1L) passou a ser new 
+    UUID(Long.MIN_VALUE, Long.MIN_VALUE) (lowestDestination), e new UUID(-1L, 
+    -1L) passou a ser new UUID(Long.MAX_VALUE, Long.MAX_VALUE)
+    (highestDestination).
+  - Duas asserções novas, antes das requisições:
+    lowestDestination.compareTo(sourceId) é negativo e
+    highestDestination.compareTo(sourceId) é positivo.
+  - Um comentário de 2 linhas explicando a garantia.
+
+  As duas chamadas a assertRejectedWithoutEffect, com 422
+  DESTINATION_ACCOUNT_NOT_FOUND, continuam iguais; só usam os novos UUIDs.
+
+  Por que as duas posições agora são garantidas
+
+  - Como o Java compara: UUID.compareTo compara primeiro os 64 bits altos, como
+    long com sinal. Os bits baixos só contam em caso de empate.
+  - Os extremos: Long.MIN_VALUE é o menor long possível e Long.MAX_VALUE o
+    maior. Um destino com esses bits altos fica antes ou depois de qualquer
+    origem, a menos que os bits altos empatem.
+  - Por que não há empate: a origem vem de UUID.randomUUID(), que é um UUID v4.
+    Nele, o nibble de versão nos bits altos vale sempre 4. Em Long.MIN_VALUE
+    (0x8000…0000) esse nibble vale 0, e em Long.MAX_VALUE (0x7FFF…FFFF) vale F.
+    Então os bits altos nunca empatam com os da origem.
+  - Resultado: o primeiro cenário sempre tem o destino como primeiro bloqueio, e
+    o segundo sempre tem o destino como segundo bloqueio.
+  - Proteção explícita: as duas asserções novas deixam isso verificável. Se a
+    premissa falhar algum dia, o teste falha nesse ponto, e não passa sem cobrir
+    o que pretende.
+
+  Quantidade total de testes
+
+  ┌─────────────────────────────────┬────────┐
+  │             Classe              │ Testes │
+  ├─────────────────────────────────┼────────┤
+  │ TransferRejectionApiTest (meus) │ 18     │
+  ├─────────────────────────────────┼────────┤
+  │ TransferRejectionReferenceTest  │ 6      │
+  ├─────────────────────────────────┼────────┤
+  │ TransferApiReferenceTest        │ 2      │
+  ├─────────────────────────────────┼────────┤
+  │ ApplicationSmokeTest            │ 3      │
+  ├─────────────────────────────────┼────────┤
+  │ AccountApiReferenceTest         │ 5      │
+  ├─────────────────────────────────┼────────┤
+  │ ArchitectureTest                │ 3      │
+  ├─────────────────────────────────┼────────┤
+  │ Total                           │ 37     │
+  └─────────────────────────────────┴────────┘
+
+  Resultado do build
+
+  BUILD SUCCESS (exit 0): 37 testes rodados, 0 falhas, 0 erros, 0 ignorados.
+
+  git status --short
+
+   M src/main/java/dev/agenticlab/account/service/AccountService.java
+   M src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java
+   M src/main/java/dev/agenticlab/transfer/service/TransferService.java
+   M src/main/java/dev/agenticlab/transfer/web/CreateTransferRequest.java
+  ?? src/main/java/dev/agenticlab/account/service/DestinationAccountNotFoundExce
+  ption.java
+  ?? 
+  src/main/java/dev/agenticlab/account/service/InsufficientFundsException.java
+  ?? src/main/java/dev/agenticlab/account/service/SourceAccountNotFoundException
+  .java
+  ?? src/main/java/dev/agenticlab/transfer/service/SameAccountException.java
+  ?? src/test/java/dev/agenticlab/transfer/
+
+  A lista de arquivos é a mesma de antes. A mudança está dentro de
+  src/test/java/dev/agenticlab/transfer/, que ainda não está no git. git diff 
+  freeze/exp-02 -- src/test/java/dev/agenticlab/reference continua vazio. Não
+  mexi em código de produção nem em documentação, e não fiz commit.
+
+✻ Baked for 1m 21s · done 9:50
+
+❯ A implementação e os testes do CC-EXP-02 estão aprovados após revisão humana. 
+                                                                                
+  Faça um commit contendo somente as alterações de implementação da Story 1.3 e 
+  os testes produzidos por você.                                                
+                                                                                
+  Antes do commit:                                                              
+                                                                                
+  confirme que nenhum arquivo protegido foi alterado;                           
+  confirme que git diff freeze/exp-02 -- src/test/java/dev/agenticlab/reference 
+  continua vazio.                                                               
+                                                                                
+  Faça o commit com a mensagem:                                                 
+                                                                                
+  feat: implement invalid transfer rejection experiment 02                      
+                                                                                
+  Depois informe:                                                               
+                                                                                
+  hash completo do commit;                                                      
+  git show --stat --oneline HEAD;                                               
+  git status --short.                                                           
+                                                                                
+  Não altere documentação.                                                      
+  Não faça push ainda.                                                          
+  Não crie PR.                                                                  
+  Não faça novas correções ou refatorações.                                     
+
+  Ran 2 shell commands (ctrl+o to expand)
+  ⎿  PostToolUse:Bash says: Tip: Run /ultrareview before you push to catch bugs 
+     with a cloud-based multi-agent review — 3 free reviews left.
+
+● O commit foi feito com os 9 arquivos da Story 1.3 e a árvore de trabalho ficou
+  limpa. Não fiz push, não criei PR e não alterei documentação.
+
+  Verificações antes do commit:
+  - Arquivos protegidos: nenhum foi alterado. Todos os arquivos modificados ou
+    novos estão na lista de modificáveis do CC-EXP-02.
+  - git diff freeze/exp-02 -- src/test/java/dev/agenticlab/reference: vazio (0
+    linhas), e não há arquivo novo nessa pasta.
+  - Base: o HEAD antes do commit era o mesmo commit de freeze/exp-02
+    (561944f3f491e81750237d550323d2622ec47788).
+
+  Adicionei ao git só esses 9 arquivos, um por um.
+
+  Hash completo do commit: d6a7d9e76a197ef2498007ff3c02133087b26402
+
+  git show --stat --oneline HEAD:
+  d6a7d9e feat: implement invalid transfer rejection experiment 02
+   .../agenticlab/account/service/AccountService.java |  37 +-
+   .../DestinationAccountNotFoundException.java       |  13 +
+   .../service/InsufficientFundsException.java        |  12 +
+   .../service/SourceAccountNotFoundException.java    |  13 +
+   .../agenticlab/common/web/ApiExceptionHandler.java |  28 ++
+   .../transfer/service/SameAccountException.java     |  12 +
+   .../transfer/service/TransferService.java          |   4 +
+   .../transfer/web/CreateTransferRequest.java        |   9 +-
+   .../transfer/TransferRejectionApiTest.java         | 387 
+  +++++++++++++++++++++
+   9 files changed, 501 insertions(+), 14 deletions(-)
+
+  git status --short: saída vazia.
+
+  A primeira linha da mensagem é exatamente a que você pediu. No corpo,
+  acrescentei a linha padrão de coautoria das minhas instruções de commit:
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>. Se ela não deve
+  constar no registro do experimento, dá para retirar com git commit --amend
+  antes do push.
+
+✻ Brewed for 19s · done 9:53
+❯ Agora vamos registrar o resultado do CC-EXP-02.                               
+                                                                                
+  Não altere código de produção nem testes.                                     
+  Não altere nem faça amend no commit d6a7d9e76a197ef2498007ff3c02133087b26402. 
+                                                                                
+  Atualize docs/lab/02-claude-code-exp-02.md preenchendo somente a seção        
+  pós-execução prevista na pré-declaração.                                      
+                                                                                
+  Registre fatos observados, separando fatos de interpretações.                 
+                                                                                
+  Inclua obrigatoriamente:                                                      
+                                                                                
+  freeze: 561944f3f491e81750237d550323d2622ec47788;                             
+  implementation commit: d6a7d9e76a197ef2498007ff3c02133087b26402;              
+  resultado final: BUILD SUCCESS, 37 testes, 0 falhas;                          
+  6 reference tests passaram de vermelho para verde;                            
+  18 testes adicionais foram escritos pelo agente;                              
+  nenhum reference test foi alterado;                                           
+  nenhum artefato protegido foi alterado;                                       
+  decisões autônomas declaradas pelo agente;                                    
+  checklist C1–C5 foi lida pelo agente antes da criação dos testes, registrando 
+  isso como limitação;                                                          
+  intervenção humana: durante a revisão, foi identificado que                   
+  unknownDestinationIsReportedWhateverItsLockPosition não garantia inicialmente 
+  as duas posições declaradas; foi solicitada exclusivamente a correção desse   
+  teste; nenhum código de produção foi alterado nessa intervenção;              
+  após a correção: 37 testes, 0 falhas;                                         
+  implementação inicial concluída em aproximadamente 3m56s e correção do teste  
+  em aproximadamente 1m21s, deixando claro que são tempos reportados pela       
+  sessão, não uma medição completa de esforço;                                  
+  o commit de implementação contém Co-Authored-By: Claude Opus 5.5              
+  <noreply@anthropic.com>, adicionado pelo agente.                              
+                                                                                
+  Avalie H3 usando exclusivamente a rubrica pré-declarada, sem alterar a        
+  rubrica retroativamente.                                                      
+                                                                                
+  Não faça commit.                                                              
+  Não faça push.                                                                
+  Não crie PR.                                                                  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(docs/lab/02-claude-code-exp-02.md)
+  ⎿  Added 185 lines, removed 2 lines
+      186  
+      187  ## Registro pós-execução
+      188  
+      189 -A preencher após a execução, em commit separado, com links par
+          -a as                                                          
+      190 -evidências (commits, PR, CI e transcript).                    
+      189 +### Evidências                                                
+      190 +                                                              
+      191 +- Freeze: `freeze/exp-02` → `561944f3f491e81750237d550323d2622
+          +ec47788`                                                      
+      192 +- Commit de implementação: `d6a7d9e76a197ef2498007ff3c02133087
+          +b26402`                                                       
+      193 +  (`feat: implement invalid transfer rejection experiment 02`)
+      194 +- PR: pendente (ainda sem push)                               
+      195 +- CI: pendente (ainda sem push)                               
+      196 +- Transcript: pendente (`docs/lab/evidence/cc-exp-02/session.t
+          +xt`)                                                          
+      197 +- Modelo informado pela sessão: Claude Opus 5.5 (`claude-opus-
+          +5-5`)                                                         
+      198 +                                                              
+      199 +### Fatos observados                                          
+      200 +                                                              
+      201 +**Resultado da verificação**                                  
+      202 +                                                              
+      203 +- `./mvnw -B verify` final: **BUILD SUCCESS, 37 testes, 0 falh
+          +as**, 0 erros,                                                
+      204 +  0 ignorados.                                                
+      205 +- Os 6 testes de `TransferRejectionReferenceTest` passaram de 
+          +vermelho para                                                 
+      206 +  verde.                                                      
+      207 +- Os 13 testes da baseline continuam verdes: `ApplicationSmoke
+          +Test` (3),                                                    
+      208 +  `AccountApiReferenceTest` (5), `ArchitectureTest` (3) e     
+      209 +  `TransferApiReferenceTest` (2).                             
+      210 +- O agente escreveu 18 testes adicionais, todos em            
+      211 +  `src/test/java/dev/agenticlab/transfer/TransferRejectionApiT
+          +est.java`.                                                    
+      212 +                                                              
+      213 +**Integridade da baseline**                                   
+      214 +                                                              
+      215 +- Nenhum teste de referência foi alterado:                    
+      216 +  `git diff freeze/exp-02 -- src/test/java/dev/agenticlab/refe
+          +rence` sai                                                    
+      217 +  vazio, e não há arquivo novo nessa pasta.                   
+      218 +- Nenhum artefato protegido foi alterado. Os 9 arquivos do com
+          +mit estão                                                     
+      219 +  todos na lista "Modificável nesta story" de `docs/lab/baseli
+          +ne.md`:                                                       
+      220 +  - `account/service/AccountService.java` (alterado)          
+      221 +  - `account/service/SourceAccountNotFoundException.java` (nov
+          +o)                                                            
+      222 +  - `account/service/DestinationAccountNotFoundException.java`
+          + (novo)                                                       
+      223 +  - `account/service/InsufficientFundsException.java` (novo)  
+      224 +  - `common/web/ApiExceptionHandler.java` (alterado)          
+      225 +  - `transfer/service/TransferService.java` (alterado)        
+      226 +  - `transfer/service/SameAccountException.java` (novo)       
+      227 +  - `transfer/web/CreateTransferRequest.java` (alterado)      
+      228 +  - `src/test/java/dev/agenticlab/transfer/TransferRejectionAp
+          +iTest.java` (novo)                                            
+      229 +- `pom.xml` sem diff. Nenhuma dependência nova.               
+      230 +                                                              
+      231 +**Autoria do commit**                                         
+      232 +                                                              
+      233 +O commit de implementação contém o trailer                    
+      234 +`Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. O a
+          +gente o                                                       
+      235 +adicionou por conta própria: o prompt do commit não pedia essa
+          + linha. O                                                     
+      236 +agente informou o fato ao entregar o commit.                  
+      237 +                                                              
+      238 +**Tempos**                                                    
+      239 +                                                              
+      240 +A implementação inicial levou cerca de **3m56s** e a correção 
+          +do teste,                                                     
+      241 +cerca de **1m21s**. São tempos informados pela sessão. Não são
+          + uma medição                                                  
+      242 +completa de esforço, porque não incluem leitura humana, revisã
+          +o nem as                                                      
+      243 +etapas de evidência.                                          
+      244 +                                                              
+      245 +**Decisões autônomas declaradas pelo agente**                 
+      246 +                                                              
+      247 +Decisões que nem os critérios de aceite nem o Architecture Spi
+          +ne                                                            
+      248 +determinavam:                                                 
+      249 +                                                              
+      250 +1. **Ordem de prioridade entre violações:** entrada inválida (
+          +400) →                                                        
+      251 +   `SAME_ACCOUNT` → `SOURCE_ACCOUNT_NOT_FOUND` →              
+      252 +   `DESTINATION_ACCOUNT_NOT_FOUND` → `INSUFFICIENT_FUNDS` (422
+          +).                                                            
+      253 +2. **Mesma conta verificada antes da existência:** a mesma con
+          +ta inexistente                                                
+      254 +   como origem e destino responde `SAME_ACCOUNT`.             
+      255 +3. **Os dois bloqueios antes das verificações:**              
+      256 +   - a existência é verificada depois dos dois `SELECT … FOR U
+          +PDATE`, origem                                                
+      257 +     antes de destino;                                        
+      258 +   - o objetivo é o código de erro não depender da ordem dos U
+          +UIDs;                                                         
+      259 +   - o custo é bloquear a conta existente até o rollback e faz
+          +er um                                                         
+      260 +     `SELECT … FOR UPDATE` a mais nos casos de erro;          
+      261 +   - o helper `lockById`, do CC-EXP-01, foi removido;         
+      262 +   - a revisão humana manteve esta decisão, registrada como de
+          +cisão                                                         
+      263 +     autônoma/trade-off.                                      
+      264 +4. **Onde fica cada regra:**                                  
+      265 +   - saldo e existência em `AccountService`;                  
+      266 +   - mesma conta em `TransferService`;                        
+      267 +   - `amount > 0` no DTO, com `@DecimalMin(value = "0.00", inc
+          +lusive = false)`.                                             
+      268 +5. **Hierarquia de exceções:** `Source…` e                    
+      269 +   `DestinationAccountNotFoundException` estendem             
+      270 +   `AccountNotFoundException`. `GET /accounts/{id}` continua r
+          +espondendo 404                                                
+      271 +   `ACCOUNT_NOT_FOUND` porque o Spring escolhe o handler mais 
+          +específico.                                                   
+      272 +6. **Saldo verificado no serviço:** `Account.debit` continua s
+          +em proteção                                                   
+      273 +   própria.                                                   
+      274 +7. **Nova dependência de `common` para `transfer`:** para     
+      275 +   `SameAccountException`. O ArchUnit não detectou ciclo.     
+      276 +8. **`detail` do Problem Details:** usa a mensagem da exceção,
+          + que inclui o                                                 
+      277 +   UUID da conta. Não há `type` nem `instance` personalizados.
+      278 +9. **Saldos ajustados direto no banco num teste:**            
+      279 +   `insufficientFundsIsCheckedOnSourceWhateverItsLockPosition`
+          + usa `UPDATE`                                                 
+      280 +   via `JdbcTemplate`.                                        
+      281 +10. **Nenhum teste unitário:** o agente declarou que não havia
+          + lógica pura a                                                
+      282 +    isolar.                                                   
+      283 +                                                              
+      284 +**Observação feita na revisão, sem alteração**                
+      285 +                                                              
+      286 +A ordem de bloqueio usa `UUID.compareTo`, que compara os bits 
+          +como `long`                                                   
+      287 +com sinal. Essa ordem é diferente da ordem de `uuid` no Postgr
+          +eSQL, que                                                     
+      288 +compara byte a byte, sem sinal. O critério já vinha do CC-EXP-
+          +01 e não foi                                                  
+      289 +alterado neste experimento.                                   
+      290 +                                                              
+      291 +**Checklist lida pelo agente (limitação)**                    
+      292 +                                                              
+      293 +O agente leu `docs/lab/02-claude-code-exp-02.md` inteiro, incl
+          +usive a                                                       
+      294 +checklist C1–C5 e a rubrica da H3, **antes** de escrever os te
+          +stes. O                                                       
+      295 +próprio agente declarou isso no relatório de entrega. É a limi
+          +tação prevista                                                
+      296 +em "Limitações aceitas antes da execução".                    
+      297 +                                                              
+      298 +### Intervenções humanas                                      
+      299 +                                                              
+      300 +| Momento | O que o humano disse ou fez | Classificação |     
+      301 +| --- | --- | --- |                                           
+      302 +| Revisão, antes do commit | Pediu ao agente o conteúdo dos ar
+          +quivos e uma explicação de `transferBalance`, sem pedir mudanç
+          +a. Na resposta, o agente apontou que `unknownDestinationIsRepo
+          +rtedWhateverItsLockPosition` não garantia as duas posições de 
+          +bloqueio declaradas. | Não classificada como intervenção: pedi
+          +do de evidência, sem direcionamento técnico. |                
+      303 +| Revisão, antes do commit | Pediu exclusivamente a correção d
+          +esse teste, proibindo alterar código de produção, testes de re
+          +ferência e documentação. | Correção |                         
+      304 +                                                              
+      305 +- **Código de produção:** nenhum arquivo foi alterado nessa in
+          +tervenção.                                                    
+      306 +- **O que mudou no teste:** os destinos inexistentes passaram 
+          +de                                                            
+      307 +  `new UUID(0L, 1L)` e `new UUID(-1L, -1L)` para              
+      308 +  `new UUID(Long.MIN_VALUE, Long.MIN_VALUE)` e                
+      309 +  `new UUID(Long.MAX_VALUE, Long.MAX_VALUE)`. Também foram acr
+          +escentadas duas                                               
+      310 +  asserções sobre `compareTo` em relação à origem.            
+      311 +- **Resultado depois da correção:** 37 testes, 0 falhas.      
+      312 +- **Aprovações não contadas:** as aprovações de ferramenta, a 
+          +aprovação da                                                  
+      313 +  implementação e o pedido de commit não contam como intervenç
+          +ão, pela regra                                                
+      314 +  de classificação pré-declarada.                             
+      315 +                                                              
+      316 +### Avaliação da H3 (rubrica pré-declarada)                   
+      317 +                                                              
+      318 +| Id | Resultado | Base |                                     
+      319 +| --- | --- | --- |                                           
+      320 +| H3-a | Atendido | O commit `d6a7d9e` adiciona `TransferRejec
+          +tionApiTest` (18 testes). |                                   
+      321 +| H3-b | Atendido | O único arquivo de teste novo está em `src
+          +/test/java/dev/agenticlab/transfer/`. |                       
+      322 +| H3-c | Atendido | Testes HTTP com Testcontainers, reutilizan
+          +do `PostgresContainerConfig`. Sem H2, sem teste unitário, `pom
+          +.xml` sem diff. Um teste ajusta saldos por SQL direto (decisão
+          + 9). |                                                        
+      323 +| H3-d | Atendido, com sobreposição parcial em 3 testes | Ver 
+          +a coluna "Sobreposição" abaixo. |                             
+      324 +| H3-e | 5 de 5 (C1–C5), com a ressalva de que a checklist foi
+          + lida antes | C1: teste 1. C2: teste 4. C3: testes 5–9. C4: te
+          +stes 10–16. C5: teste 17. |                                   
+      325 +| H3-f | 15 com utilidade clara, 3 com utilidade fraca | Justi
+          +ficativa por teste abaixo. |                                  
+      326 +| H3-g | Atendido | `git diff freeze/exp-02 -- src/test/java/d
+          +ev/agenticlab/reference` vazio. |                             
+      327 +                                                              
+      328 +**H3-d e H3-f por teste.** Coluna "Falharia contra": implement
+          +ação errada                                                   
+      329 +plausível que o teste detecta.                                
+      330 +                                                              
+      331 +| # | Teste | Falharia contra | Sobreposição com a referência 
+          +|                                                             
+      332 +| --- | --- | --- | --- |                                     
+      333 +| 1 | `acceptsAmountEqualToSourceBalanceLeavingZero` | verific
+          +ação de saldo com `<=` em vez de `<` | não |                  
+      334 +| 2 | `acceptsSmallestPositiveAmount` | limite mínimo errado (
+          +por exemplo `@Min(1)`) | não |                                
+      335 +| 3 | `rejectsAnyAmountFromZeroBalanceAccount` | quase nenhuma
+          + além da que a referência já pega; **utilidade fraca** | **par
+          +cial** (`rejectsAmountExceedingSourceBalance`) |              
+      336 +| 4 | `rejectsAmountWithMoreThanTwoDecimalPlacesWithoutRoundin
+          +g` | remoção de `@Digits` ou arredondamento | não |           
+      337 +| 5 | `rejectsMissingAmount` | remoção de `@NotNull` (NPE → 50
+          +0) | não |                                                    
+      338 +| 6 | `rejectsMissingSourceAccountId` | idem (NPE em `equals` 
+          +→ 500) | não |                                                
+      339 +| 7 | `rejectsMissingDestinationAccountId` | idem | não |     
+      340 +| 8 | `rejectsNonUuidAccountId` | tratamento de corpo ilegível
+          + diferente de 400 | não |                                     
+      341 +| 9 | `rejectsMalformedJsonBody` | idem | não |               
+      342 +| 10 | `invalidInputTakesPrecedenceOverBusinessRules` | valida
+          +ção de valor movida para depois da checagem de mesma conta | n
+          +ão |                                                          
+      343 +| 11 | `sameAccountTakesPrecedenceOverUnknownAccount` | existê
+          +ncia verificada antes de mesma conta | não |                  
+      344 +| 12 | `unknownSourceIsReportedFirstWhenBothAccountsAreUnknown
+          +RegardlessOfIdOrder` | falhar no primeiro bloqueio, como o `lo
+          +ckById` anterior | não |                                      
+      345 +| 13 | `unknownDestinationTakesPrecedenceOverInsufficientFunds
+          +` | saldo verificado antes da existência do destino | não |   
+      346 +| 14 | `unknownSourceTakesPrecedenceOverInsufficientFunds` | s
+          +ó uma implementação improvável, já que sem origem não há saldo
+          + a verificar; **utilidade fraca** | não |                     
+      347 +| 15 | `insufficientFundsIsCheckedOnSourceWhateverItsLockPosit
+          +ion` | saldo verificado na primeira conta bloqueada, em vez da
+          + origem | não |                                               
+      348 +| 16 | `unknownDestinationIsReportedWhateverItsLockPosition` |
+          + exceção escolhida pela posição do bloqueio, em vez do papel d
+          +a conta (garantido só depois da correção) | não |             
+      349 +| 17 | `validTransferSucceedsAfterRejectionBetweenSameAccounts
+          +` | rejeição que deixa efeito parcial (débito sem rollback) | 
+          +não |                                                         
+      350 +| 18 | `unknownAccountInTransferDoesNotChangeAccountLookupCont
+          +ract` | handler de conta inexistente mudado para 422 de forma 
+          +global; **utilidade fraca** | **parcial** (`AccountApiReferenc
+          +eTest.returnsNotFoundForUnknownAccountId`) |                  
+      351 +                                                              
+      352 +A tabela de H3-f conta 3 testes de utilidade fraca: 3, 14 e 18
+          +. Na coluna                                                   
+      353 +"Sobreposição", 2 deles aparecem como parciais (3 e 18). O ter
+          +ceiro teste                                                   
+      354 +com sobreposição parcial citado em H3-d é o 16: antes da corre
+          +ção, ele                                                      
+      355 +repetia na prática o cenário de destino inexistente da referên
+          +cia                                                           
+      356 +(`rejectsUnknownDestinationAccount`), sem garantir a segunda p
+          +osição.                                                       
+      357 +                                                              
+      358 +### Interpretação                                             
+      359 +                                                              
+      360 +- **Leitura pré-declarada:** H3-a e H3-b foram atendidos. Port
+          +anto, a H3                                                    
+      361 +  **não é refutada neste caso**. Ela continua hipótese: é uma 
+          +única                                                         
+      362 +  execução, sem grupo de controle, e o avaliador também desenh
+          +ou o                                                          
+      363 +  experimento.                                                
+      364 +- **H3-e é fraco como evidência:** o agente conhecia a checkli
+          +st, então os                                                  
+      365 +  5/5 não mostram que ele encontrou esses casos sozinho.      
+      366 +- **Qualidade dos testes:** a falha do teste 16 não foi detect
+          +ada pelo build                                                
+      367 +  verde. Apareceu quando o próprio agente explicou o código a 
+          +pedido da                                                     
+      368 +  revisão humana. Isso sugere que testes de ordenação e concor
+          +rência escritos                                               
+      369 +  pelo agente precisam de revisão específica das premissas.   
+      370 +- **Atribuição:** H3-c a H3-f descrevem a qualidade dos testes
+          + e, pela                                                      
+      371 +  rubrica, não confirmam nem refutam a H3. As classificações d
+          +e H3-d e H3-f                                                 
+      372 +  acima foram redigidas pelo agente avaliado e devem ser confe
+          +ridas pelo                                                    
+      373 +  avaliador humano.                                           
+
+● Bash(python3 - <<'EOF'
+      p='docs/lab/02-claude-code-exp-02.md'…)
+  ⎿   M docs/lab/02-claude-code-exp-02.md
+      docs/lab/02-claude-code-exp-02.md | 181 +++++++++++++++++++++++++++++
+     ++++++++-
+      1 file changed, 179 insertions(+), 2 deletions(-)
+  ⎿  Updated docs/lab/02-claude-code-exp-02.md (+1 -7)
+      320  | H3-a | Atendido | O commit `d6a7d9e` adiciona `TransferRejec
+           tionApiTest` (18 testes). |
+      321  | H3-b | Atendido | O único arquivo de teste novo está em `src
+           /test/java/dev/agenticlab/transfer/`. |
+      322  | H3-c | Atendido | Testes HTTP com Testcontainers, reutilizan
+           do `PostgresContainerConfig`. Sem H2, sem teste unitário, `pom
+           .xml` sem diff. Um teste ajusta saldos por SQL direto (decisão
+            9). |
+      323 -| H3-d | Atendido, com sobreposição parcial em 3 testes | Ver 
+          -a coluna "Sobreposição" abaixo. |                             
+      323 +| H3-d | Atendido, com sobreposição parcial em 2 testes (3 e 1
+          +8) | Ver a coluna "Sobreposição" abaixo. |                    
+      324  | H3-e | 5 de 5 (C1–C5), com a ressalva de que a checklist foi
+            lida antes | C1: teste 1. C2: teste 4. C3: testes 5–9. C4: te
+           stes 10–16. C5: teste 17. |
+      325  | H3-f | 15 com utilidade clara, 3 com utilidade fraca | Justi
+           ficativa por teste abaixo. |
+      326  | H3-g | Atendido | `git diff freeze/exp-02 -- src/test/java/d
+           ev/agenticlab/reference` vazio. |
+     ...
+      349  | 17 | `validTransferSucceedsAfterRejectionBetweenSameAccounts
+           ` | rejeição que deixa efeito parcial (débito sem rollback) | 
+           não |
+      350  | 18 | `unknownAccountInTransferDoesNotChangeAccountLookupCont
+           ract` | handler de conta inexistente mudado para 422 de forma 
+           global; **utilidade fraca** | **parcial** (`AccountApiReferenc
+           eTest.returnsNotFoundForUnknownAccountId`) |
+      351  
+      352 -A tabela de H3-f conta 3 testes de utilidade fraca: 3, 14 e 18
+          -. Na coluna                                                   
+      353 -"Sobreposição", 2 deles aparecem como parciais (3 e 18). O ter
+          -ceiro teste                                                   
+      354 -com sobreposição parcial citado em H3-d é o 16: antes da corre
+          -ção, ele                                                      
+      355 -repetia na prática o cenário de destino inexistente da referên
+          -cia                                                           
+      356 -(`rejectsUnknownDestinationAccount`), sem garantir a segunda p
+          -osição.                                                       
+      357 -                                                              
+      352  ### Interpretação
+      353  
+      354  - **Leitura pré-declarada:** H3-a e H3-b foram atendidos. Port
+           anto, a H3
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Preenchi a seção "Registro pós-execução" de docs/lab/02-claude-code-exp-02.md
+  e mais nada no arquivo. As outras seções da pré-declaração continuam
+  idênticas, e o diff só acrescenta linhas a partir da linha 189. Não mexi em
+  código nem em testes, e não fiz commit, amend, push ou PR.
+
+  Pendente: PR, CI e o transcript ficaram marcados como pendentes, porque ainda
+  não existem.
+
+  O que a seção registra:
+  - Evidências: o hash do freeze 561944f… e do commit d6a7d9e…, e o modelo
+    informado pela sessão.
+  - Fatos observados:
+    - BUILD SUCCESS, 37 testes, 0 falhas;
+    - os 6 testes de referência passaram de vermelho para verde e os 13 da
+      baseline continuam verdes;
+    - 18 testes escritos por mim;
+    - nenhum teste de referência e nenhum artefato protegido alterado, com a
+      lista dos 9 arquivos;
+    - pom.xml sem diff;
+    - a linha Co-Authored-By foi adicionada por mim sem ter sido pedida;
+    - os tempos de cerca de 3m56s e 1m21s, com a ressalva de que são tempos
+      informados pela sessão, não uma medição completa de esforço.
+  - Decisões autônomas: as 10 que declarei, incluindo os dois bloqueios antes
+    das verificações, registrados como trade-off mantido pela revisão.
+  - Observação sem alteração: a diferença entre a ordem de UUID.compareTo e a
+    ordem de uuid no PostgreSQL, herdada do CC-EXP-01.
+  - Limitação: eu li a checklist C1–C5 e a rubrica antes de escrever os testes.
+  - Intervenções:
+    - O pedido de evidências da revisão não foi classificado como intervenção.
+    - O pedido de corrigir unknownDestinationIsReportedWhateverItsLockPosition
+      foi classificado como correção, sem mudança em código de produção. Depois
+      da correção: 37 testes, 0 falhas.
+  - Avaliação da H3, só pela rubrica pré-declarada:
+
+  | Critério               | Resultado
+                                   |
+  |------------------------|----------------------------------------------------
+  ----------------------------------|
+  | H3-a, H3-b, H3-c, H3-g | Atendidos
+                                   |
+  | H3-d                   | Atendido, com sobreposição parcial em 2 testes (#3
+  e #18)                            |
+  | H3-e                   | 5/5, com a ressalva da checklist lida antes
+                                   |
+  | H3-f                   | 15 testes com utilidade clara e 3 fracos (#3, #14,
+  #18), com justificativa por teste |
+    Pela leitura pré-declarada, a H3 não é refutada neste caso e continua
+    hipótese.
+
+  Os pontos que exigem seu julgamento de avaliador:
+  - H3-d e H3-f foram escritos por mim, o agente avaliado. O documento diz
+    explicitamente que essas classificações precisam ser conferidas pelo
+    avaliador humano. O ponto mais discutível é marcar H3-d como "Atendido"
+    mesmo com os testes #3 e #18 parcialmente sobrepostos à referência.
+  - Classificação das intervenções: apliquei a regra pré-declarada. A decisão
+    final é sua.
+  - O bloco "Log" da seção H6 (versão, modelo, início e fim) continua vazio,
+    porque você pediu para preencher só a seção pós-execução.
+
+✻ Worked for 1m 30s · done 9:56
+
+※ recap: A Story 1.3 do CC-EXP-02 está implementada, commitada e aprovada. Agora preenchi o registro pós-execução em `docs/lab/02-claude-code-exp-02.md`, ainda sem commit. Próximo passo: você revisar esse registro, principalmente minhas avaliações de H3-d e H3-f. (disable recaps in /config)
+
+❯ A avaliação humana do registro pós-execução foi concluída e aprovada.         
+                                                                                
+  Faça commit somente de:                                                       
+                                                                                
+  docs/lab/02-claude-code-exp-02.md                                             
+                                                                                
+  Não altere mais o conteúdo.                                                   
+                                                                                
+  Use a mensagem:                                                               
+                                                                                
+  docs: record Claude Code experiment 02 results                                
+                                                                                
+  Depois informe:                                                               
+                                                                                
+  hash completo do commit;                                                      
+  git log --oneline -3;                                                         
+  git status --short.                                                           
+                                                                                
+  Não faça push.                                                                
+  Não crie PR.                                                                  
+  Não altere nenhum outro arquivo.                                              
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Fiz o commit só com docs/lab/02-claude-code-exp-02.md, sem alterar o conteúdo.
+  Antes do commit, esse era o único arquivo modificado e o único adicionado ao
+  índice. Não fiz push nem criei PR.
+
+  Hash completo do commit: 56cc59260f939742503bceed588adbd81bc6c0a9
+
+  git log --oneline -3:
+  56cc592 docs: record Claude Code experiment 02 results
+  d6a7d9e feat: implement invalid transfer rejection experiment 02
+  561944f test: prepare Claude Code experiment 02
+
+  git status --short: saída vazia, a árvore de trabalho está limpa.
+
+  Assim como no commit de implementação, adicionei por conta própria a linha
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com> no corpo da mensagem,
+  sem que você tivesse pedido. A primeira linha é exatamente a que você pediu.
+
+✻ Worked for 8s · done 10:02
