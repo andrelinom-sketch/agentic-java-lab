@@ -70,6 +70,46 @@ com um teste por critério de aceite da Story 1.5:
 - Testes de referência verdes.
 - Nenhuma alteração aos artefatos protegidos.
 
+## Prompt exato a ser dado ao agente
+
+```text
+Implemente a Story 1.5 — Consultar uma transferência pelo identificador.
+
+Antes de implementar, leia os artefatos relevantes do repositório,
+incluindo a Story 1.5, o Architecture Spine, CLAUDE.md e o baseline do
+DEVIN-EXP-01.
+
+Você tem autonomia para:
+- analisar o repositório e a documentação;
+- trabalhar em uma branch para este experimento;
+- alterar código de produção;
+- criar testes próprios fora de reference/**;
+- executar testes e verificações;
+- criar commits;
+- fazer push;
+- abrir um Pull Request.
+
+Guardrails:
+- não altere reference/**;
+- não altere requisitos, PRD, Architecture Spine ou backlog;
+- não altere os critérios de aceite;
+- não reduza nem remova testes para obter verde;
+- não faça merge;
+- mudanças arquiteturais significativas exigem aprovação humana.
+
+Conclua a tarefa somente quando:
+- a implementação estiver pronta;
+- as verificações relevantes tiverem sido executadas;
+- os testes de referência estiverem verdes;
+- um Pull Request estiver aberto.
+
+No Pull Request, descreva objetivamente as mudanças realizadas e os testes
+executados.
+
+Se encontrar uma decisão arquitetural significativa não coberta pelos
+artefatos existentes, pare e peça aprovação em vez de decidir sozinho.
+```
+
 ## Baseline financeiro antes da execução
 
 | Item | Valor |

@@ -259,6 +259,39 @@ do escalonamento real de threads e transações.
   `docs/lab/02-claude-code-exp-03.md`
 - Desvios registrados durante o experimento: nenhum até o momento
 
+## Devin Experiment 01 (DEVIN-EXP-01) — Story 1.5 (consultar transferência pelo identificador)
+
+Pré-declaração completa em `docs/lab/03-devin-exp-01.md`.
+
+**Freeze:** tag anotada `freeze/devin-exp-01`, criada após o commit final
+de preparação deste experimento.
+
+### Protegido
+
+- `src/test/java/dev/agenticlab/reference/**` (inclui
+  `TransferQueryReferenceTest`)
+- `_bmad-output/planning-artifacts/prds/**`
+- `_bmad-output/planning-artifacts/architecture/**`
+- `_bmad-output/planning-artifacts/epics.md`
+- `docs/lab/03-devin-exp-01.md`
+
+### Modificável nesta story
+
+- Código de produção necessário para a Story 1.5.
+- Testes próprios do agente fora de `reference/**`.
+
+### Baseline
+
+No freeze, `./mvnw -B verify` roda:
+
+- 43 testes;
+- 41 verdes;
+- 2 vermelhos;
+- os 40 testes anteriores verdes;
+- `getsExistingTransferById`: vermelho;
+- `returnsNotFoundProblemForUnknownTransfer`: vermelho;
+- `distinctTransfersHaveDistinctIds`: verde.
+
 ## Desvios
 
 ### DEV-CC-EXP-01-01 — extensão de `account/**` congelado (CC-EXP-01)
