@@ -3,6 +3,14 @@
 Este documento lista os artefatos congelados a cada marco (`freeze/exp-NN`)
 e a régua comum de verificação (AD-9, AD-10).
 
+**Fonte única.** Este arquivo é a única fonte autoritativa dos artefatos
+protegidos e modificáveis. O `CLAUDE.md` só aponta para cá. Valem as listas
+**Protegido** e **Modificável nesta story** da seção do experimento
+corrente. As seções anteriores são registro histórico. Um artefato que não
+aparece em nenhuma das duas listas é tratado como protegido: o agente para e
+sinaliza, em vez de alterá-lo. Essa regra foi adotada a partir do
+CC-EXP-02, por causa do DEV-CC-EXP-01-01 (ver `docs/playbook.md`, H1).
+
 ## Nomenclatura
 
 Para evitar ambiguidade, os ciclos do laboratório são identificados assim
@@ -14,6 +22,8 @@ nos documentos de `docs/lab/`:
   "Experimento 01 (BMAD)".
 - **Claude Code Experiment 01 (CC-EXP-01)** — implementação da Story 1.2
   por Claude Code, registrada em `docs/lab/02-claude-code-exp-01.md`.
+- **Claude Code Experiment 02 (CC-EXP-02)** — implementação da Story 1.3
+  por Claude Code, registrada em `docs/lab/02-claude-code-exp-02.md`.
 
 Tags, branches e o histórico Git existentes não são renomeados: a tag
 `freeze/exp-01` e a branch `experiment/exp-01-transfer` pertencem ao
@@ -87,6 +97,76 @@ Story 1.4 / Experimento futuro.
 - Testes de referência adicionados para esta story: `TransferApiReferenceTest`
   (2 testes, vermelhos na criação da tag)
 - Desvios registrados durante o experimento: 1 (DEV-CC-EXP-01-01, abaixo)
+
+## Claude Code Experiment 02 (CC-EXP-02) — Story 1.3 (rejeição de transferências inválidas)
+
+Pré-declaração completa em `docs/lab/02-claude-code-exp-02.md`.
+
+**Composição da baseline em `freeze/exp-02`:** a tag captura, no mesmo
+commit, a `main` com S1, S2 e o playbook v0.1, mais:
+
+1. **Baseline verde (13 testes):** `ApplicationSmokeTest` (3),
+   `AccountApiReferenceTest` (5), `ArchitectureTest` (3) e
+   `TransferApiReferenceTest` (2).
+2. **Especificação executável, inicialmente vermelha (6 testes):**
+   `TransferRejectionReferenceTest`, com um teste por critério de aceite da
+   Story 1.3:
+   - `rejectsUnknownSourceAccount`
+   - `rejectsUnknownDestinationAccount`
+   - `rejectsZeroAmount`
+   - `rejectsNegativeAmount`
+   - `rejectsAmountExceedingSourceBalance`
+   - `rejectsSameSourceAndDestination`
+3. A pré-declaração, com o prompt exato, a checklist de avaliação e os
+   critérios da H3, e este arquivo e o `CLAUDE.md` na versão com fonte
+   única.
+
+### Protegido
+
+- `src/test/java/dev/agenticlab/reference/**` (inclui `support/` e
+  `TransferRejectionReferenceTest`)
+- `src/test/resources/**`
+- `src/main/resources/**` (inclui `application.yml` e todas as migrations
+  Flyway, existentes ou novas: a Story 1.3 não prevê mudança de esquema; o
+  `CHECK (balance >= 0)` pertence à Story 1.4)
+- `src/main/java/dev/agenticlab/AgenticLabApplication.java`
+- `pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/**`
+- `.github/**`, `docker-compose.yml`, `scripts/**`
+- `CLAUDE.md`, `LAB-PLAN.md`, `README.md`, `docs/**`
+- `_bmad/**`, `_bmad-output/**`, `.claude/**`
+
+### Modificável nesta story
+
+- `src/main/java/dev/agenticlab/transfer/**`
+- `src/main/java/dev/agenticlab/account/**`: extensão prevista. Pelo AD-2
+  e pelo AD-4, a verificação de saldo pertence a `account` e ocorre depois
+  do bloqueio. O comportamento existente de `account` continua coberto pelo
+  `AccountApiReferenceTest` (por exemplo, `GET /accounts/{id}` inexistente
+  segue 404 `ACCOUNT_NOT_FOUND`).
+- `src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java`
+- `src/test/java/dev/agenticlab/transfer/**`: testes escritos pelo agente
+  (AD-8), fora de `reference`.
+
+### Como distinguir testes de referência e testes do agente
+
+- **Pacote:** `dev.agenticlab.reference..` é régua; qualquer teste fora
+  dele é trabalho do agente.
+- **Origem:** testes de referência já existem em `freeze/exp-02`; testes do
+  agente só aparecem em commits posteriores da branch do experimento.
+- **Invariante:** `git diff freeze/exp-02..<branch> --
+  src/test/java/dev/agenticlab/reference` precisa sair vazio.
+
+### freeze/exp-02
+
+- Data: a preencher na criação da tag
+- Tag: `freeze/exp-02` (anotada)
+- Commit: registrado em commit posterior à tag, porque a tag não pode
+  conter o próprio hash (`git rev-list -n 1 freeze/exp-02`)
+- Branch do experimento: `experiment/exp-02-invalid-transfers`
+- Agente/ferramenta avaliada: Claude Code
+- Story medida: 1.3 — rejeitar solicitações inválidas sem efeito
+- Hipótese testada: H3 (`docs/playbook.md`)
+- Desvios registrados durante o experimento: nenhum até o momento
 
 ## Desvios
 

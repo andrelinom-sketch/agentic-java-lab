@@ -17,21 +17,16 @@ Implementar a story atribuída para que os testes de referência relevantes
 (pacote `src/test/java/dev/agenticlab/reference`) passem, seguindo as
 decisões do Architecture Spine.
 
-## O que você não deve alterar
+## O que você pode e não pode alterar
 
-Estes arquivos são a régua do experimento. Não os edite, mesmo que pareça
-mais simples:
+A única fonte autoritativa dos artefatos **protegidos** e **modificáveis**
+é `docs/lab/baseline.md`, na seção do experimento corrente. Este arquivo
+não mantém lista própria.
 
-- `src/test/java/dev/agenticlab/reference/**` (todos os testes de referência,
-  incluindo os que ainda estão vermelhos porque sua story não foi
-  implementada — são a especificação, não um obstáculo a contornar).
-- `src/test/resources/archunit.properties`
-- `pom.xml`
-- `.github/workflows/ci.yml`
-- `docs/lab/baseline.md`
-- Migrations Flyway já existentes em `src/main/resources/db/migration/`
-  (crie uma nova migration `V{N}__...sql` se precisar de esquema novo; nunca
-  edite uma já commitada).
+Antes de alterar qualquer arquivo, confira em qual das duas listas ele
+está. Os testes de referência (`src/test/java/dev/agenticlab/reference/**`),
+inclusive os que ainda estão vermelhos, são a especificação, não um
+obstáculo a contornar.
 
 ## Antes de considerar a tarefa concluída
 
@@ -44,5 +39,6 @@ Execute `./mvnw -B verify` e confirme que:
 ## Se algo conflitar
 
 Se a story pedir algo que contradiz uma decisão `[ADOPTED]` do Architecture
-Spine, ou exigir alterar um dos arquivos protegidos acima, **não decida
-sozinho**: pare e sinalize o conflito.
+Spine, ou exigir alterar um artefato protegido ou que não esteja na lista de
+modificáveis de `docs/lab/baseline.md`, **não decida sozinho**: pare e
+sinalize o conflito.
