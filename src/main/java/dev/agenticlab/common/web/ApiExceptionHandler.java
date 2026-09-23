@@ -1,6 +1,10 @@
 package dev.agenticlab.common.web;
 
 import dev.agenticlab.account.service.AccountNotFoundException;
+import dev.agenticlab.account.service.DestinationAccountNotFoundException;
+import dev.agenticlab.account.service.InsufficientFundsException;
+import dev.agenticlab.account.service.SourceAccountNotFoundException;
+import dev.agenticlab.transfer.service.SameAccountException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -19,10 +23,34 @@ public class ApiExceptionHandler {
 
     private static final String VALIDATION_ERROR = "VALIDATION_ERROR";
     private static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
+    private static final String SOURCE_ACCOUNT_NOT_FOUND = "SOURCE_ACCOUNT_NOT_FOUND";
+    private static final String DESTINATION_ACCOUNT_NOT_FOUND = "DESTINATION_ACCOUNT_NOT_FOUND";
+    private static final String INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
+    private static final String SAME_ACCOUNT = "SAME_ACCOUNT";
 
     @ExceptionHandler(AccountNotFoundException.class)
     public ProblemDetail handleAccountNotFound(AccountNotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, ex.getMessage(), ACCOUNT_NOT_FOUND);
+    }
+
+    @ExceptionHandler(SourceAccountNotFoundException.class)
+    public ProblemDetail handleSourceAccountNotFound(SourceAccountNotFoundException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), SOURCE_ACCOUNT_NOT_FOUND);
+    }
+
+    @ExceptionHandler(DestinationAccountNotFoundException.class)
+    public ProblemDetail handleDestinationAccountNotFound(DestinationAccountNotFoundException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), DESTINATION_ACCOUNT_NOT_FOUND);
+    }
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ProblemDetail handleInsufficientFunds(InsufficientFundsException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), INSUFFICIENT_FUNDS);
+    }
+
+    @ExceptionHandler(SameAccountException.class)
+    public ProblemDetail handleSameAccount(SameAccountException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), SAME_ACCOUNT);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
