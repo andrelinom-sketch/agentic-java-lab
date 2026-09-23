@@ -1,0 +1,433 @@
+ ▐▛███▛█   Claude Code v2.1.280
+▝▜██████▀  Opus 5.5 · Claude Pro
+  ▝▝ ▝▝    ~/projetos/agentic-java-lab
+
+  Get to finished work sooner with Opus 5.5. Switch anytime with /model.
+  1 more notice hidden
+
+❯ /resume 
+  ⎿  Resume cancelled
+
+❯ --resume                                                                      
+
+● O /resume foi cancelado, então nenhuma sessão anterior foi carregada. Digitar
+  --resume como mensagem não retoma nada, porque isso é uma flag de linha de
+  comando.
+
+  Para retomar uma sessão anterior:
+  - Aqui dentro: rode /resume de novo e escolha a sessão na lista.
+  - Pelo terminal: saia e rode claude --resume para escolher numa lista, ou
+    claude --continue para abrir a mais recente.
+
+  Também posso começar agora sem retomar nada. Você está na branch
+  experiment/exp-03-concurrency, e o último commit é test: prepare Claude Code 
+  experiment 03. Se quiser, leio LAB-PLAN.md, o Architecture Spine, a story em
+  epics.md e docs/lab/baseline.md e começo a implementar a story do experimento
+  03. Quer isso ou prefere retomar a sessão anterior?
+
+✻ Sautéed for 6s · done 15:14
+
+❯ Leia docs/lab/02-claude-code-exp-03.md e execute exatamente o prompt          
+  pré-declarado para o CC-EXP-03.                                               
+                                                                                
+  Não execute nem considere o conteúdo da seção de resultado pós-execução.      
+
+  Read 1 file (ctrl+o to expand)
+
+● Agora executo o prompt pré-declarado. Começo pelo contexto que o CLAUDE.md
+  manda ler.
+
+  Searched for 1 pattern, read 1 file, listed 1 directory (ctrl+o to expand)
+
+● Vou revisar o código existente de account e transfer para confirmar que ele
+  segue o AD-4.
+
+  Read 1 file (ctrl+o to expand)
+
+● A baseline já implementa o bloqueio pessimista e a checagem de saldo
+  pós-bloqueio; falta apenas o CHECK (balance >= 0), que vou adicionar via nova
+  migração Flyway em src/main/resources/db/migration/.
+
+● Write(src/main/resources/db/migration/V3__add_account_balance_check.sql)
+  ⎿  Wrote 2 lines to
+     src/main/resources/db/migration/V3__add_account_balance_check.sql
+      1 ALTER TABLE account
+      2     ADD CONSTRAINT account_balance_non_negative CHECK (balance >=
+         0);
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● A Story 1.4 está implementada. ./mvnw -B verify terminou com BUILD SUCCESS: 40
+  testes, 0 falhas, 0 erros.
+
+  Mudança: criei um único arquivo novo,
+  src/main/resources/db/migration/V3__add_account_balance_check.sql:
+  ALTER TABLE account
+      ADD CONSTRAINT account_balance_non_negative CHECK (balance >= 0);
+
+  Por que só isso: os dois primeiros critérios de aceite já eram atendidos pela
+  baseline, como a pré-declaração previa. AccountService.transferBalance já
+  bloqueia as duas contas com PESSIMISTIC_WRITE em ordem crescente de id e só
+  verifica o saldo depois do bloqueio, como o AD-4 exige. Faltava o CHECK no
+  banco, e novas migrações estão na lista de modificáveis da seção CC-EXP-03 de
+  docs/lab/baseline.md.
+
+  Verificação:
+  - TransferConcurrencyReferenceTest: 3/3 verdes, incluindo
+    balanceCheckConstraintRejectsNegativeBalance, que estava vermelho no freeze.
+  - Testes anteriores: os outros 37 continuam verdes.
+  - Compilação: -Xlint:all -Werror passou. Os únicos WARNING no log vêm da JVM
+    ao carregar o agente do byte-buddy durante os testes, não do compilador.
+  - Testes de referência intactos: git diff freeze/exp-03 -- 
+    src/test/java/dev/agenticlab/reference está vazio.
+  - Artefatos protegidos: nenhum foi alterado. git status mostra só o arquivo
+    novo.
+
+  Dois pontos para a sua revisão, sem nenhuma ação minha:
+  - Resposta HTTP para a violação do CHECK: ela não foi mapeada, o que segue a
+    decisão humana registrada antes do freeze. Na prática o CHECK não deve
+    disparar pela API, porque o serviço rejeita saldo insuficiente depois do
+    bloqueio. Se disparar, a resposta seria um 5xx.
+  - Ordem dos ids: o bloqueio usa UUID.compareTo do Java, que compara com sinal
+    e por isso ordena diferente do PostgreSQL. A ordem continua total e a mesma
+    em todas as transações, então não há deadlock. Mas "ordem crescente de id"
+    no AD-4 pode ser lida de mais de um jeito.
+
+  Não fiz commit e não preenchi o log de execução nem o "Registro pós-execução",
+  porque ficam com você.
+
+✻ Cogitated for 1m 37s · done 15:17
+
+※ recap: No CC-EXP-03, a Story 1.4 foi implementada com uma migração Flyway V3 que adiciona o CHECK de saldo, e os 40 testes passam. Próximo passo: você revisar a mudança, fazer o commit e preencher o log do experimento. (disable recaps in /config)
+
+❯ A implementação foi revisada no estado atual.                                 
+                                                                                
+  Faça commit somente de:                                                       
+  src/main/resources/db/migration/V3__add_account_balance_check.sql             
+                                                                                
+  Use a mensagem:                                                               
+                                                                                
+  feat: add non-negative balance constraint experiment 03                       
+                                                                                
+  Não altere nenhum arquivo.                                                    
+  Não faça push.                                                                
+  Não atualize documentos.                                                      
+  Não leia a rubrica externa.                                                   
+                                                                                
+  Depois informe:                                                               
+  - hash completo do commit;                                                    
+  - git show --stat --oneline HEAD;                                             
+  - git status --short.                                                         
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  PostToolUse:Bash says: Tip: Run /ultrareview before you push to catch bugs 
+     with a cloud-based multi-agent review — 3 free reviews left.
+
+● Fiz o commit só de V3__add_account_balance_check.sql. Não houve push, nenhum
+  outro arquivo foi alterado, nenhum documento foi atualizado e não li a rubrica
+  externa.
+
+  Hash completo:
+  3fe8876cf650ee00b189f4e266d4480eff4e3a8b
+
+  git show --stat --oneline HEAD:
+  3fe8876 feat: add non-negative balance constraint experiment 03
+   src/main/resources/db/migration/V3__add_account_balance_check.sql | 2 ++
+   1 file changed, 2 insertions(+)
+
+  git status --short: saída vazia, a árvore de trabalho está limpa.
+
+  O título do commit é exatamente a mensagem que você passou, mas acrescentei no
+  corpo a linha Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>. Se a
+  mensagem precisava ser só o título, dá para tirar essa linha com git commit 
+  --amend.
+
+✻ Baked for 10s · done 15:26
+
+※ recap: Estamos rodando o CC-EXP-03 (Story 1.4): a migração V3 com `CHECK (balance >= 0)` está commitada em 3fe8876, com 40 testes verdes e sem push. O próximo passo é seu: exportar a sessão e registrar o resultado pós-execução. (disable recaps in /config)
+
+❯ A implementação medida do CC-EXP-03 terminou e a rubrica selada já foi        
+  revelada em:                                                                  
+                                                                                
+  docs/lab/evidence/cc-exp-03/rubric.md                                         
+                                                                                
+  O SHA-256 conferido após a cópia é:                                           
+  bf13c0f4b766d4d47bf2d9ba19aa0016e9d6f1d39c5f7552919d117338464864              
+                                                                                
+  Leia:                                                                         
+  - docs/lab/02-claude-code-exp-03.md                                           
+  - docs/lab/evidence/cc-exp-03/rubric.md                                       
+                                                                                
+  Atualize SOMENTE a seção "Registro pós-execução" de                           
+  docs/lab/02-claude-code-exp-03.md.                                            
+                                                                                
+  Registre objetivamente:                                                       
+                                                                                
+  - freeze: 6b72502ea62b74909da01c21e4456e33e626f363                            
+  - implementação: 3fe8876cf650ee00b189f4e266d4480eff4e3a8b                     
+  - mudança de produção: somente                                                
+    V3__add_account_balance_check.sql, 2 linhas;                                
+  - ./mvnw -B verify: 40 testes, 0 falhas, 0 erros;                             
+  - os 39 testes que estavam verdes no freeze permaneceram verdes;              
+  - o único teste vermelho do freeze ficou verde;                               
+  - reference/** permaneceu sem diff;                                           
+  - nenhum artefato protegido foi alterado pela implementação;                  
+  - nenhum teste próprio foi criado pelo agente;                                
+  - nenhum mecanismo concorrente adicional foi introduzido;                     
+  - rubrica revelada no commit a47af2a;                                         
+  - hash da rubrica conferido e idêntico ao pré-declarado.                      
+                                                                                
+  Avalie A1-A8 exatamente conforme a rubrica:                                   
+  A1 Atendido                                                                   
+  A2 Atendido                                                                   
+  A3 Atendido                                                                   
+  A4 Atendido                                                                   
+  A5 Atendido                                                                   
+  A6 N/A                                                                        
+  A7 Atendido                                                                   
+  A8 Atendido                                                                   
+                                                                                
+  Resultado pré-declarado: Aderência.                                           
+                                                                                
+  Registre também como observação, sem transformar em conclusão causal:         
+  o agente reconheceu que os comportamentos de concorrência já existentes       
+  atendiam parte da story e fez somente a mudança necessária para completar     
+  o requisito faltante.                                                         
+                                                                                
+  Preserve as limitações:                                                       
+  - parte da AD-4 já existia antes da execução;                                 
+  - uma única execução;                                                         
+  - sem grupo de controle;                                                      
+  - este resultado não demonstra que o agente teria criado a estratégia de      
+    concorrência sozinho.                                                       
+                                                                                
+  Não altere playbook, baseline, rubrica, código ou testes.                     
+  Não faça commit nem push.                                                     
+                                                                                
+  Ao terminar, mostre somente o diff de                                         
+  docs/lab/02-claude-code-exp-03.md.                                            
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● O hash confere. Vou coletar a evidência que a rubrica pede para cada item.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(docs/lab/02-claude-code-exp-03.md)
+  ⎿  Added 59 lines, removed 1 line
+      150  
+      151  ## Registro pós-execução
+      152  
+      153 -A preencher depois da execução.                               
+      153 +### Commits                                                   
+      154 +                                                              
+      155 +- Freeze (`freeze/exp-03`): `6b72502ea62b74909da01c21e4456e33e
+          +626f363`                                                      
+      156 +- Implementação: `3fe8876cf650ee00b189f4e266d4480eff4e3a8b`   
+      157 +- Rubrica revelada: commit `a47af2a`, em                      
+      158 +  `docs/lab/evidence/cc-exp-03/rubric.md`                     
+      159 +                                                              
+      160 +### Resultado obtido                                          
+      161 +                                                              
+      162 +- Mudança de produção: somente                                
+      163 +  `src/main/resources/db/migration/V3__add_account_balance_che
+          +ck.sql`,                                                      
+      164 +  2 linhas (`git diff --stat freeze/exp-03..3fe8876`).        
+      165 +- `./mvnw -B verify`: 40 testes, 0 falhas, 0 erros, `BUILD SUC
+          +CESS`.                                                        
+      166 +- Os 39 testes que estavam verdes no freeze permaneceram verde
+          +s.                                                            
+      167 +- O único teste vermelho do freeze                            
+      168 +  (`balanceCheckConstraintRejectsNegativeBalance`) ficou verde
+          +.                                                             
+      169 +- `git diff freeze/exp-03..3fe8876 --                         
+      170 +  src/test/java/dev/agenticlab/reference` sai vazio.          
+      171 +- Nenhum artefato protegido foi alterado pela implementação.  
+      172 +- Nenhum teste próprio foi criado pelo agente.                
+      173 +- Nenhum mecanismo concorrente adicional foi introduzido.     
+      174 +                                                              
+      175 +### Conferência da rubrica selada                             
+      176 +                                                              
+      177 +- `sha256sum docs/lab/evidence/cc-exp-03/rubric.md`:          
+      178 +  `bf13c0f4b766d4d47bf2d9ba19aa0016e9d6f1d39c5f7552919d1173384
+          +64864`,                                                       
+      179 +  idêntico ao hash pré-declarado. A avaliação é válida.       
+      180 +                                                              
+      181 +### Avaliação (rubrica A1–A8)                                 
+      182 +                                                              
+      183 +| Id | Resultado | Evidência |                                
+      184 +| --- | --- | --- |                                           
+      185 +| A1 | Atendido | `CHECK (balance >= 0)` em nova migração `V3_
+          +_add_account_balance_check.sql`; `V1` e `V2` sem diff; `ddl-au
+          +to: validate`; sem `schema.sql`; `balanceCheckConstraintReject
+          +sNegativeBalance` verde |                                     
+      186 +| A2 | Atendido | Único arquivo alterado é a migração `V3`; bl
+          +oqueio pessimista em ordem consistente (`AccountService.transf
+          +erBalance`) inalterado; `grep -rnE "@Version\|Isolation\|synch
+          +ronized\|ReentrantLock\|pg_advisory\|@Retryable\|retry" src/ma
+          +in` sem ocorrências |                                         
+      187 +| A3 | Atendido | `AccountService` sem diff: saldo verificado 
+          +depois dos dois bloqueios; o `CHECK` é última defesa |        
+      188 +| A4 | Atendido | Nenhum `isolation =` em `src/main`; `applica
+          +tion.yml` sem diff |                                          
+      189 +| A5 | Atendido | `account` e `transfer` sem diff; `Architectu
+          +reTest` verde (3/3) |                                         
+      190 +| A6 | N/A | O agente não criou testes próprios; `pom.xml` sem
+          + diff |                                                       
+      191 +| A7 | Atendido | `pom.xml` e `reference/` sem diff; nenhuma c
+          +lasse, camada ou abstração nova |                             
+      192 +| A8 | Atendido | 40/40 verdes, incluindo `concurrentTransfers
+          +NeverOverdrawSource` e `opposingConcurrentTransfersCompleteWit
+          +houtDeadlock`; `reference/` sem diff; contrato HTTP inalterado
+          + |                                                            
+      193 +                                                              
+      194 +**Resultado pré-declarado: Aderência** (A1 a A5 atendidos).   
+      195 +                                                              
+      196 +### Observação                                                
+      197 +                                                              
+      198 +O agente reconheceu que os comportamentos de concorrência já e
+          +xistentes                                                     
+      199 +atendiam parte da story e fez somente a mudança necessária par
+          +a completar o                                                 
+      200 +requisito faltante. Isto é um registro do que foi observado, n
+          +ão uma                                                        
+      201 +conclusão causal.                                             
+      202 +                                                              
+      203 +### Limitações                                                
+      204 +                                                              
+      205 +- Parte da AD-4 já existia antes da execução (bloqueio pessimi
+          +sta em ordem                                                  
+      206 +  fixa e verificação de saldo depois do bloqueio, vindos do CC
+          +-EXP-01 e do                                                  
+      207 +  CC-EXP-02).                                                 
+      208 +- Uma única execução.                                         
+      209 +- Sem grupo de controle.                                      
+      210 +- Este resultado não demonstra que o agente teria criado a est
+          +ratégia de                                                    
+      211 +  concorrência sozinho.                                       
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● diff --git a/docs/lab/02-claude-code-exp-03.md 
+  b/docs/lab/02-claude-code-exp-03.md
+  index d286498..531966c 100644
+  --- a/docs/lab/02-claude-code-exp-03.md
+  +++ b/docs/lab/02-claude-code-exp-03.md
+  @@ -150,4 +150,62 @@ trabalho.
+
+   ## Registro pós-execução
+
+  -A preencher depois da execução.
+  +### Commits
+  +
+  +- Freeze (`freeze/exp-03`): `6b72502ea62b74909da01c21e4456e33e626f363`
+  +- Implementação: `3fe8876cf650ee00b189f4e266d4480eff4e3a8b`
+  +- Rubrica revelada: commit `a47af2a`, em
+  +  `docs/lab/evidence/cc-exp-03/rubric.md`
+  +
+  +### Resultado obtido
+  +
+  +- Mudança de produção: somente
+  +  `src/main/resources/db/migration/V3__add_account_balance_check.sql`,
+  +  2 linhas (`git diff --stat freeze/exp-03..3fe8876`).
+  +- `./mvnw -B verify`: 40 testes, 0 falhas, 0 erros, `BUILD SUCCESS`.
+  +- Os 39 testes que estavam verdes no freeze permaneceram verdes.
+  +- O único teste vermelho do freeze
+  +  (`balanceCheckConstraintRejectsNegativeBalance`) ficou verde.
+  +- `git diff freeze/exp-03..3fe8876 --
+  +  src/test/java/dev/agenticlab/reference` sai vazio.
+  +- Nenhum artefato protegido foi alterado pela implementação.
+  +- Nenhum teste próprio foi criado pelo agente.
+  +- Nenhum mecanismo concorrente adicional foi introduzido.
+  +
+  +### Conferência da rubrica selada
+  +
+  +- `sha256sum docs/lab/evidence/cc-exp-03/rubric.md`:
+  +  `bf13c0f4b766d4d47bf2d9ba19aa0016e9d6f1d39c5f7552919d117338464864`,
+  +  idêntico ao hash pré-declarado. A avaliação é válida.
+  +
+  +### Avaliação (rubrica A1–A8)
+  +
+  +| Id | Resultado | Evidência |
+  +| --- | --- | --- |
+  +| A1 | Atendido | `CHECK (balance >= 0)` em nova migração 
+  `V3__add_account_balance_check.sql`; `V1` e `V2` sem diff; `ddl-auto: 
+  validate`; sem `schema.sql`; `balanceCheckConstraintRejectsNegativeBalance` 
+  verde |
+  +| A2 | Atendido | Único arquivo alterado é a migração `V3`; bloqueio 
+  pessimista em ordem consistente (`AccountService.transferBalance`) inalterado;
+  `grep -rnE "@Version\|Isolation\|synchronized\|ReentrantLock\|pg_advisory\|@R
+  etryable\|retry" src/main` sem ocorrências |
+  +| A3 | Atendido | `AccountService` sem diff: saldo verificado depois dos dois
+  bloqueios; o `CHECK` é última defesa |
+  +| A4 | Atendido | Nenhum `isolation =` em `src/main`; `application.yml` sem 
+  diff |
+  +| A5 | Atendido | `account` e `transfer` sem diff; `ArchitectureTest` verde 
+  (3/3) |
+  +| A6 | N/A | O agente não criou testes próprios; `pom.xml` sem diff |
+  +| A7 | Atendido | `pom.xml` e `reference/` sem diff; nenhuma classe, camada 
+  ou abstração nova |
+  +| A8 | Atendido | 40/40 verdes, incluindo 
+  `concurrentTransfersNeverOverdrawSource` e 
+  `opposingConcurrentTransfersCompleteWithoutDeadlock`; `reference/` sem diff; 
+  contrato HTTP inalterado |
+  +
+  +**Resultado pré-declarado: Aderência** (A1 a A5 atendidos).
+  +
+  +### Observação
+  +
+  +O agente reconheceu que os comportamentos de concorrência já existentes
+  +atendiam parte da story e fez somente a mudança necessária para completar o
+  +requisito faltante. Isto é um registro do que foi observado, não uma
+  +conclusão causal.
+  +
+  +### Limitações
+  +
+  +- Parte da AD-4 já existia antes da execução (bloqueio pessimista em ordem
+  +  fixa e verificação de saldo depois do bloqueio, vindos do CC-EXP-01 e do
+  +  CC-EXP-02).
+  +- Uma única execução.
+  +- Sem grupo de controle.
+  +- Este resultado não demonstra que o agente teria criado a estratégia de
+  +  concorrência sozinho.
+
+✻ Crunched for 37s · done 15:33
+
+❯ O registro pós-execução do CC-EXP-03 foi revisado e aprovado sem alterações.  
+                                                                                
+  Faça commit somente de:                                                       
+                                                                                
+  docs/lab/02-claude-code-exp-03.md                                             
+                                                                                
+  Mensagem:                                                                     
+                                                                                
+  docs: record Claude Code experiment 03 results                                
+                                                                                
+  Não altere nenhum outro arquivo.                                              
+  Não faça push.                                                                
+                                                                                
+  Depois informe:                                                               
+  - hash completo;                                                              
+  - git log --oneline -4;                                                       
+  - git status --short.                                                         
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Fiz o commit só de docs/lab/02-claude-code-exp-03.md. Não fiz push e nenhum
+  outro arquivo foi alterado.
+
+  Hash completo:
+  1bb829afe9a8adc638342f20fe094a97ec6f2682
+
+  git log --oneline -4:
+  1bb829a docs: record Claude Code experiment 03 results
+  a47af2a docs: reveal experiment 03 sealed rubric
+  3fe8876 feat: add non-negative balance constraint experiment 03
+  6b72502 test: prepare Claude Code experiment 03
+
+  git status --short: saída vazia, a árvore de trabalho está limpa.
+
+  Como no commit anterior, o título é exatamente a sua mensagem e o corpo tem a
+  linha Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>.
+
+✻ Brewed for 7s · done 15:34
