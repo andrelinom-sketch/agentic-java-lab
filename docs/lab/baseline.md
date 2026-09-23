@@ -24,6 +24,8 @@ nos documentos de `docs/lab/`:
   por Claude Code, registrada em `docs/lab/02-claude-code-exp-01.md`.
 - **Claude Code Experiment 02 (CC-EXP-02)** — implementação da Story 1.3
   por Claude Code, registrada em `docs/lab/02-claude-code-exp-02.md`.
+- **Claude Code Experiment 03 (CC-EXP-03)** — implementação da Story 1.4
+  por Claude Code, registrada em `docs/lab/02-claude-code-exp-03.md`.
 
 Tags, branches e o histórico Git existentes não são renomeados: a tag
 `freeze/exp-01` e a branch `experiment/exp-01-transfer` pertencem ao
@@ -166,6 +168,95 @@ commit, a `main` com S1, S2 e o playbook v0.1, mais:
 - Agente/ferramenta avaliada: Claude Code
 - Story medida: 1.3 — rejeitar solicitações inválidas sem efeito
 - Hipótese testada: H3 (`docs/playbook.md`)
+- Desvios registrados durante o experimento: nenhum até o momento
+
+## Claude Code Experiment 03 (CC-EXP-03) — Story 1.4 (saldo não negativo sob concorrência)
+
+Pré-declaração completa em `docs/lab/02-claude-code-exp-03.md`.
+
+**Composição da baseline em `freeze/exp-03`:** a tag captura, no mesmo
+commit, a `main` com S1, S2, S3 e o playbook v0.2, mais:
+
+1. **Baseline verde (37 testes):** `ApplicationSmokeTest` (3),
+   `AccountApiReferenceTest` (5), `ArchitectureTest` (3),
+   `TransferApiReferenceTest` (2), `TransferRejectionReferenceTest` (6) e
+   `TransferRejectionApiTest` (18, escritos pelo agente no CC-EXP-02).
+2. **`TransferConcurrencyReferenceTest` (3 testes)**, um por critério de
+   aceite da Story 1.4:
+   - `concurrentTransfersNeverOverdrawSource`: **verde** no freeze;
+   - `opposingConcurrentTransfersCompleteWithoutDeadlock`: **verde** no
+     freeze;
+   - `balanceCheckConstraintRejectsNegativeBalance`: **vermelho** no
+     freeze.
+
+   O quarto critério (teste de concorrência com várias threads contra
+   PostgreSQL real) é atendido por esta própria classe.
+3. A pré-declaração, com o prompt exato e o hash da rubrica selada.
+
+No freeze, `./mvnw -B verify` roda 40 testes: 39 verdes e 1 vermelho.
+
+### Protegido
+
+- `src/test/java/dev/agenticlab/reference/**` (inclui `support/` e
+  `TransferConcurrencyReferenceTest`)
+- `src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java`
+- `src/test/resources/**`
+- `src/main/resources/application.yml`
+- `src/main/resources/db/migration/V1__create_account_table.sql` e
+  `V2__create_transfer_table.sql`
+- `src/main/java/dev/agenticlab/AgenticLabApplication.java`
+- `pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/**`
+- `.github/**`, `docker-compose.yml`, `scripts/**`
+- `CLAUDE.md`, `LAB-PLAN.md`, `README.md`, `docs/**`
+- `_bmad/**`, `_bmad-output/**`, `.claude/**`
+
+### Modificável nesta story
+
+- `src/main/java/dev/agenticlab/account/**`
+- `src/main/java/dev/agenticlab/transfer/**`
+- `src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java`
+- Novos arquivos em `src/main/resources/db/migration/`. As migrações
+  existentes continuam protegidas.
+- Novos arquivos de teste em `src/test/java/dev/agenticlab/transfer/**` e
+  `src/test/java/dev/agenticlab/account/**`, fora de `reference` (AD-8).
+
+### Como distinguir testes de referência e testes do agente
+
+- **Pacote:** `dev.agenticlab.reference..` é régua; qualquer teste fora
+  dele é trabalho do agente.
+- **Origem:** testes de referência já existem em `freeze/exp-03`; testes do
+  agente deste experimento só aparecem em commits posteriores da branch.
+  `TransferRejectionApiTest` é do CC-EXP-02 e faz parte da baseline.
+- **Invariante:** `git diff freeze/exp-03..<branch> --
+  src/test/java/dev/agenticlab/reference` precisa sair vazio.
+
+### Estabilidade dos testes de concorrência antes do freeze
+
+Em 2026-09-23, sobre o código da `main` em `a56435a` com
+`TransferConcurrencyReferenceTest` acrescentado:
+
+- `concurrentTransfersNeverOverdrawSource` e
+  `opposingConcurrentTransfersCompleteWithoutDeadlock` rodaram em 20
+  execuções Maven independentes, cada uma com um contexto Spring e um
+  contêiner PostgreSQL novos.
+- Resultado: **20/20 verdes, 0 falhas, 0 erros**. Nenhum log registrou
+  deadlock (`40P01`) nem resposta 5xx.
+- Cada execução levou de 22 a 29 s, incluindo a subida do contexto.
+
+Isso reduz o risco de instabilidade, mas não o elimina: o resultado depende
+do escalonamento real de threads e transações.
+
+### freeze/exp-03
+
+- Data: a preencher na criação da tag
+- Tag: `freeze/exp-03` (anotada)
+- Commit: registrado em commit posterior à tag, porque a tag não pode
+  conter o próprio hash (`git rev-list -n 1 freeze/exp-03`)
+- Branch do experimento: `experiment/exp-03-concurrency`
+- Agente/ferramenta avaliada: Claude Code
+- Story medida: 1.4 — garantir saldo não negativo sob concorrência
+- Rubrica: selada fora do repositório; SHA-256 em
+  `docs/lab/02-claude-code-exp-03.md`
 - Desvios registrados durante o experimento: nenhum até o momento
 
 ## Desvios
