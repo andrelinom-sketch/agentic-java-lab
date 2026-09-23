@@ -29,12 +29,16 @@ evidências.
 | --- | --- | --- | --- | --- |
 | CC-EXP-01 | [`docs/lab/02-claude-code-exp-01.md`](lab/02-claude-code-exp-01.md) | `freeze/exp-01` → `2cc86e5` | `df644e4` (PR #1, merge `2b45a49`) | `8040fa0` |
 | CC-EXP-02 | [`docs/lab/02-claude-code-exp-02.md`](lab/02-claude-code-exp-02.md) | `freeze/exp-02` → `561944f` | `d6a7d9e` (PR #2, merge `1565c67`) | — (resultado `56cc592`, transcript `b4fde94`) |
+| CC-EXP-03 | [`docs/lab/02-claude-code-exp-03.md`](lab/02-claude-code-exp-03.md) | `freeze/exp-03` → `6b72502` | `3fe8876` (PR #3, merge `b521a5a`) | — (rubrica `a47af2a`, resultado `1bb829a`, transcript `8e80a14`) |
 
 O CC-EXP-01 é uma única execução de Claude Code sobre a Story 1.2
 (transferência válida). O CC-EXP-02 é uma única execução de Claude Code
 sobre a Story 1.3 (rejeição de transferências inválidas), desenhada para
-testar a H3; só a H3 foi atualizada com ele. As limitações gerais estão no
-fim deste documento e valem para todas as recomendações abaixo.
+testar a H3; só a H3 foi atualizada com ele. O CC-EXP-03 é uma única
+execução de Claude Code sobre a Story 1.4 (saldo não negativo sob
+concorrência), a partir de uma baseline que já implementava parte da AD-4;
+só a H4 foi atualizada com ele. As limitações gerais estão no fim deste
+documento e valem para todas as recomendações abaixo.
 
 ---
 
@@ -194,7 +198,8 @@ mesmo vale para outros tipos de teste.
 
 ## H4 — Contrato vermelho + Spine + guardrails como pacote de contexto
 
-**Status:** Hipótese · **Origem:** CC-EXP-01
+**Status:** Hipótese · **Origem:** CC-EXP-01 · **Observada também em:**
+CC-EXP-03 (baseline parcialmente implementada)
 
 **Recomendação atual:** usar como ponto de partida o pacote de contexto do
 CC-EXP-01:
@@ -230,11 +235,58 @@ isso se deve à presença do Spine no contexto.
   422) ficaram para as Stories 1.3 a 1.5.
 - Houve uma única execução, com um único agente e modelo.
 
+**Fatos observados — CC-EXP-03**
+- O experimento avaliou a aderência arquitetural diante de uma
+  implementação parcial da Story 1.4, não a capacidade do agente de
+  descobrir a estratégia de concorrência sozinho. Ver
+  [`rubric.md`](lab/evidence/cc-exp-03/rubric.md), "Objetivos detalhados".
+- No freeze, a baseline já tinha o bloqueio pessimista das duas contas em
+  ordem fixa e a verificação de saldo depois do bloqueio (AD-4), vindos do
+  CC-EXP-01 e do CC-EXP-02. Dois dos três testes de
+  `TransferConcurrencyReferenceTest` já passavam; faltava o
+  `CHECK (balance >= 0)`.
+- O contexto incluía o Spine, o `CLAUDE.md` apontando para
+  [`baseline.md`](lab/baseline.md), a story e o teste de referência como
+  contrato executável.
+- O agente reconheceu que os mecanismos existentes já atendiam parte da
+  story e os preservou: `account` e `transfer` ficaram sem diff.
+- A única mudança de produção em `3fe8876` foi uma nova migração,
+  `V3__add_account_balance_check.sql`, com 2 linhas que acrescentam
+  `CHECK (balance >= 0)`. Nenhum mecanismo concorrente alternativo foi
+  introduzido: sem `@Version`, isolamento alterado, `synchronized`, advisory
+  lock nem retry.
+- `./mvnw -B verify`: 40 testes, 0 falhas. `reference/` sem diff. O agente
+  não criou testes próprios, e o prompt não os pedia.
+- Pela rubrica selada, com hash conferido: A1–A5 atendidos, A6 N/A, A7–A8
+  atendidos. Resultado pré-declarado: **Aderência**. Ver
+  [`02-claude-code-exp-03.md`](lab/02-claude-code-exp-03.md), "Registro
+  pós-execução".
+
+**Interpretação — CC-EXP-03:** diante de arquitetura explícita, de uma
+baseline que já cumpria parte da story e de critérios verificáveis, o agente
+fez uma mudança pequena e aderente, em vez de redesenhar o mecanismo. O
+experimento não mostra o que o agente faria sem a implementação existente.
+
+**Aprendizado provisório:** fornecer arquitetura explícita, uma baseline
+parcialmente implementada e critérios verificáveis pode favorecer mudanças
+pequenas e aderentes. Isso se baseia em uma única execução. O CC-EXP-03 não
+demonstra causalidade nem a capacidade do agente de criar a arquitetura do
+zero.
+
+**Limitações — CC-EXP-03:**
+- Parte da AD-4 já existia antes da execução.
+- Uma única execução, sem grupo de controle.
+- O resultado não demonstra que o agente teria criado a estratégia de
+  concorrência sozinho.
+- Houve um único avaliador, que também desenhou o experimento e a rubrica.
+
 **O que futuros experimentos podem mostrar:**
 - execuções com partes do pacote removidas indicariam o que é necessário;
 - stories com regra de negócio e concorrência indicariam se o pacote
   continua suficiente;
-- outros agentes indicariam se o resultado depende da ferramenta.
+- outros agentes indicariam se o resultado depende da ferramenta;
+- uma execução da Story 1.4 sem o mecanismo da AD-4 na baseline indicaria
+  se o agente adota a estratégia de concorrência por conta própria.
 
 ---
 
@@ -308,10 +360,13 @@ que as intervenções sejam contadas a partir de artefatos.
 ## Limitações gerais desta versão
 
 - Cada recomendação deriva de **uma única execução** por story: um agente,
-  um modelo, sem repetição e sem grupo de controle. Só a H3 tem duas
-  execuções (CC-EXP-01 e CC-EXP-02), sobre stories diferentes.
+  um modelo, sem repetição e sem grupo de controle. A H3 tem duas
+  execuções (CC-EXP-01 e CC-EXP-02), e a H4 também (CC-EXP-01 e CC-EXP-03),
+  sempre sobre stories diferentes.
 - A story medida é pequena, e a parte difícil do domínio ainda não foi
   exercitada.
+- No CC-EXP-03, a concorrência foi verificada pelos testes de referência,
+  mas o mecanismo já existia na baseline. O agente não precisou projetá-lo.
 - O CC-EXP-01 foi conduzido sem rubrica versionada e sem aplicar a
   taxonomia de intervenções.
 - Houve um único avaliador, que também desenhou o experimento.
@@ -324,3 +379,4 @@ que as intervenções sejam contadas a partir de artefatos.
 | --- | --- | --- | --- |
 | 0.1 | 2026-09-22 | Primeira versão: H1–H6 registradas como hipóteses | CC-EXP-01 (`2cc86e5`, `df644e4`, `2b45a49`, `8040fa0`) |
 | 0.2 | 2026-09-23 | H3 atualizada com o CC-EXP-02; segue hipótese. Aprendizado provisório sobre revisão do cenário dos testes do agente | CC-EXP-02 (`561944f`, `d6a7d9e`, `56cc592`, `b4fde94`, `1565c67`) |
+| 0.3 | 2026-09-23 | H4 atualizada com o CC-EXP-03; segue hipótese. Aprendizado provisório sobre baseline parcial com arquitetura explícita | CC-EXP-03 (`6b72502`, `3fe8876`, `a47af2a`, `1bb829a`, `8e80a14`, `b521a5a`) |
