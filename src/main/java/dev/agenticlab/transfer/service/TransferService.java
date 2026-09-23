@@ -25,8 +25,12 @@ public class TransferService {
         this.transferRepository = transferRepository;
     }
 
+    /** @throws SameAccountException se origem e destino são a mesma Conta */
     @Transactional
     public Transfer create(UUID sourceAccountId, UUID destinationAccountId, BigDecimal amount) {
+        if (sourceAccountId.equals(destinationAccountId)) {
+            throw new SameAccountException(sourceAccountId);
+        }
         accountService.transferBalance(sourceAccountId, destinationAccountId, amount);
 
         Transfer transfer =

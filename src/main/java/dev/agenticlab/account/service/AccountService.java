@@ -3,6 +3,7 @@ package dev.agenticlab.account.service;
 import dev.agenticlab.account.model.Account;
 import dev.agenticlab.account.repository.AccountRepository;
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,25 +35,37 @@ public class AccountService {
     /**
      * Debita {@code sourceAccountId} e credita {@code destinationAccountId} pelo mesmo valor,
      * dentro da transação do chamador (AD-3). AD-4: as duas contas são bloqueadas em ordem
-     * crescente de id, para evitar deadlock em transferências cruzadas.
+     * crescente de id, para evitar deadlock em transferências cruzadas, e o saldo é verificado
+     * depois do bloqueio.
+     *
+     * <p>A existência das contas é verificada depois dos dois bloqueios, origem antes de destino,
+     * para que a resposta não dependa da ordem dos ids.
+     *
+     * @throws SourceAccountNotFoundException se a origem não existe
+     * @throws DestinationAccountNotFoundException se o destino não existe
+     * @throws InsufficientFundsException se o saldo da origem é menor que {@code amount}
      */
     @Transactional
     public void transferBalance(UUID sourceAccountId, UUID destinationAccountId, BigDecimal amount) {
-        UUID firstLockId =
-                sourceAccountId.compareTo(destinationAccountId) <= 0 ? sourceAccountId : destinationAccountId;
-        UUID secondLockId = firstLockId.equals(sourceAccountId) ? destinationAccountId : sourceAccountId;
+        boolean sourceFirst = sourceAccountId.compareTo(destinationAccountId) <= 0;
+        UUID firstLockId = sourceFirst ? sourceAccountId : destinationAccountId;
+        UUID secondLockId = sourceFirst ? destinationAccountId : sourceAccountId;
 
-        Account first = lockById(firstLockId);
-        Account second = lockById(secondLockId);
+        Optional<Account> first = accountRepository.findByIdForUpdate(firstLockId);
+        Optional<Account> second = accountRepository.findByIdForUpdate(secondLockId);
 
-        Account source = firstLockId.equals(sourceAccountId) ? first : second;
-        Account destination = firstLockId.equals(sourceAccountId) ? second : first;
+        Account source =
+                (sourceFirst ? first : second)
+                        .orElseThrow(() -> new SourceAccountNotFoundException(sourceAccountId));
+        Account destination =
+                (sourceFirst ? second : first)
+                        .orElseThrow(() -> new DestinationAccountNotFoundException(destinationAccountId));
+
+        if (source.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException(sourceAccountId);
+        }
 
         source.debit(amount);
         destination.credit(amount);
-    }
-
-    private Account lockById(UUID id) {
-        return accountRepository.findByIdForUpdate(id).orElseThrow(() -> new AccountNotFoundException(id));
     }
 }
