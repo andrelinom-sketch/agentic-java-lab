@@ -28,10 +28,13 @@ evidências.
 | Id | Registro | Freeze | Implementação | Correção de registro |
 | --- | --- | --- | --- | --- |
 | CC-EXP-01 | [`docs/lab/02-claude-code-exp-01.md`](lab/02-claude-code-exp-01.md) | `freeze/exp-01` → `2cc86e5` | `df644e4` (PR #1, merge `2b45a49`) | `8040fa0` |
+| CC-EXP-02 | [`docs/lab/02-claude-code-exp-02.md`](lab/02-claude-code-exp-02.md) | `freeze/exp-02` → `561944f` | `d6a7d9e` (PR #2, merge `1565c67`) | — (resultado `56cc592`, transcript `b4fde94`) |
 
 O CC-EXP-01 é uma única execução de Claude Code sobre a Story 1.2
-(transferência válida). Suas limitações gerais estão no fim deste
-documento e valem para todas as recomendações abaixo.
+(transferência válida). O CC-EXP-02 é uma única execução de Claude Code
+sobre a Story 1.3 (rejeição de transferências inválidas), desenhada para
+testar a H3; só a H3 foi atualizada com ele. As limitações gerais estão no
+fim deste documento e valem para todas as recomendações abaixo.
 
 ---
 
@@ -107,29 +110,85 @@ elas aparecem apenas como resultado da leitura do diff na revisão humana.
 
 ## H3 — Pedir testes do agente de forma explícita, dizendo onde ficam
 
-**Status:** Hipótese · **Origem:** CC-EXP-01
+**Status:** Hipótese · **Origem:** CC-EXP-01 · **Testada em:** CC-EXP-02
+(não refutada neste caso)
 
 **Recomendação atual:** quando se quiser que o agente escreva testes
 próprios, dizer isso no prompt e indicar a localização, fora de `reference`
-(AD-8).
+(AD-8). Revisar esses testes quanto ao cenário que cada um declara cobrir,
+não só quanto à execução verde (aprendizado provisório, ver abaixo).
 
-**Fatos observados**
+**Fatos observados — CC-EXP-01**
 - `df644e4` não adiciona nem altera nenhum arquivo em `src/test`.
 - O AD-8 prevê testes escritos pelo agente, fora do pacote `reference`.
 - O prompt pedia para rodar `./mvnw -B verify` e confirmar os testes
   verdes. Não pedia novos testes.
 
-**Interpretação:** o agente satisfez o contrato existente e não o ampliou.
-O CC-EXP-01 não mostra se isso decorre do prompt ou de outro fator.
+**Fatos observados — CC-EXP-02**
+- O prompt pedia explicitamente testes próprios para a Story 1.3 e definia
+  onde escrevê-los: `src/test/java/dev/agenticlab/transfer/**`, fora de
+  `reference`, seguindo o AD-8. Ver
+  [`02-claude-code-exp-02.md`](lab/02-claude-code-exp-02.md), "Prompt exato
+  a ser dado ao agente".
+- `d6a7d9e` adiciona 18 testes do agente, todos em
+  `src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java`,
+  além dos 6 testes de referência de `TransferRejectionReferenceTest`.
+  `git diff freeze/exp-02 -- src/test/java/dev/agenticlab/reference` sai
+  vazio.
+- Os testes do agente cobrem cenários além da referência: os 5 itens da
+  checklist C1–C5 e outros, como o menor valor positivo e a precedência
+  entre violações. Pela avaliação registrada, 16 dos 18 não se sobrepõem à
+  referência e 15 têm utilidade clara ("Avaliação da H3").
+- O agente leu a checklist C1–C5 e a rubrica da H3 **antes** de escrever os
+  testes, como declarou no relatório de entrega.
+- `./mvnw -B verify` terminou com 37/37 testes verdes. Mesmo assim, durante
+  a revisão humana, identificou-se que
+  `unknownDestinationIsReportedWhateverItsLockPosition` não garantia as
+  duas posições de bloqueio que declarava cobrir. A falha apareceu quando
+  o agente explicou o código a pedido do revisor, não pelo build.
+- O teste foi corrigido após intervenção humana (classificada como
+  *correção*), sem alteração no código de produção. O resultado seguiu
+  37/37 verdes.
 
-**Limitações:** não há nenhuma execução em que os testes tenham sido
-pedidos para comparar. Também não se avaliou se testes adicionais teriam
-valor nesta story.
+**Interpretação:**
+- No CC-EXP-01, o agente satisfez o contrato existente e não o ampliou. O
+  CC-EXP-01 não mostra se isso decorre do prompt ou de outro fator.
+- No CC-EXP-02, o pedido explícito com localização foi acompanhado de
+  testes próprios no lugar indicado. Pela leitura pré-declarada do
+  experimento, a H3 não é refutada neste caso.
+- Isso não demonstra causalidade: uma execução, story diferente da do
+  CC-EXP-01, sem grupo de controle, e a H1 mudou ao mesmo tempo.
+- A cobertura de C1–C5 é evidência fraca de descoberta autônoma de casos,
+  porque o agente conhecia a checklist.
+- Testes verdes não são evidência suficiente da qualidade das premissas
+  dos próprios testes: um teste pode passar sem exercitar o cenário que
+  seu nome declara.
+
+**Aprendizado provisório:** testes produzidos pelo agente também precisam
+de revisão quanto à qualidade do cenário — se o teste de fato monta a
+situação que declara cobrir —, não apenas quanto à execução verde. No
+CC-EXP-02, o caso foi um teste de ordenação de bloqueios. Não se sabe se o
+mesmo vale para outros tipos de teste.
+
+**Limitações:**
+- Há uma execução sem pedido de testes (CC-EXP-01) e uma com pedido
+  (CC-EXP-02), sobre stories diferentes. Não é uma comparação A/B.
+- A checklist estava no repositório e foi lida pelo agente antes dos
+  testes.
+- As classificações por teste (sobreposição e utilidade) foram
+  originalmente redigidas pelo agente avaliado. Depois do registro do
+  experimento, foram conferidas e aprovadas pelo avaliador humano (H3-d e
+  H3-f).
+- A falha de premissa foi encontrada por uma única revisão, de um único
+  avaliador, que também desenhou o experimento. Não se sabe se há outras
+  não detectadas.
 
 **O que futuros experimentos podem mostrar:**
-- se o pedido explícito produz testes;
-- onde esses testes são colocados;
-- se testam algo além dos testes de referência ou apenas os repetem.
+- se o pedido explícito produz testes em outras stories, agentes e modelos;
+- se o agente encontra casos além da referência sem conhecer uma checklist
+  de avaliação;
+- com que frequência testes do agente passam sem exercitar o cenário
+  declarado, e que tipo de revisão detecta isso.
 
 ---
 
@@ -248,8 +307,9 @@ que as intervenções sejam contadas a partir de artefatos.
 
 ## Limitações gerais desta versão
 
-- Tudo deriva de **uma única execução**: um agente, um modelo, uma story,
-  sem repetição e sem grupo de controle.
+- Cada recomendação deriva de **uma única execução** por story: um agente,
+  um modelo, sem repetição e sem grupo de controle. Só a H3 tem duas
+  execuções (CC-EXP-01 e CC-EXP-02), sobre stories diferentes.
 - A story medida é pequena, e a parte difícil do domínio ainda não foi
   exercitada.
 - O CC-EXP-01 foi conduzido sem rubrica versionada e sem aplicar a
@@ -263,3 +323,4 @@ que as intervenções sejam contadas a partir de artefatos.
 | Versão | Data | Mudança | Base |
 | --- | --- | --- | --- |
 | 0.1 | 2026-09-22 | Primeira versão: H1–H6 registradas como hipóteses | CC-EXP-01 (`2cc86e5`, `df644e4`, `2b45a49`, `8040fa0`) |
+| 0.2 | 2026-09-23 | H3 atualizada com o CC-EXP-02; segue hipótese. Aprendizado provisório sobre revisão do cenário dos testes do agente | CC-EXP-02 (`561944f`, `d6a7d9e`, `56cc592`, `b4fde94`, `1565c67`) |
