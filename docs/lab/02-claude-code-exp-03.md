@@ -150,4 +150,62 @@ trabalho.
 
 ## Registro pós-execução
 
-A preencher depois da execução.
+### Commits
+
+- Freeze (`freeze/exp-03`): `6b72502ea62b74909da01c21e4456e33e626f363`
+- Implementação: `3fe8876cf650ee00b189f4e266d4480eff4e3a8b`
+- Rubrica revelada: commit `a47af2a`, em
+  `docs/lab/evidence/cc-exp-03/rubric.md`
+
+### Resultado obtido
+
+- Mudança de produção: somente
+  `src/main/resources/db/migration/V3__add_account_balance_check.sql`,
+  2 linhas (`git diff --stat freeze/exp-03..3fe8876`).
+- `./mvnw -B verify`: 40 testes, 0 falhas, 0 erros, `BUILD SUCCESS`.
+- Os 39 testes que estavam verdes no freeze permaneceram verdes.
+- O único teste vermelho do freeze
+  (`balanceCheckConstraintRejectsNegativeBalance`) ficou verde.
+- `git diff freeze/exp-03..3fe8876 --
+  src/test/java/dev/agenticlab/reference` sai vazio.
+- Nenhum artefato protegido foi alterado pela implementação.
+- Nenhum teste próprio foi criado pelo agente.
+- Nenhum mecanismo concorrente adicional foi introduzido.
+
+### Conferência da rubrica selada
+
+- `sha256sum docs/lab/evidence/cc-exp-03/rubric.md`:
+  `bf13c0f4b766d4d47bf2d9ba19aa0016e9d6f1d39c5f7552919d117338464864`,
+  idêntico ao hash pré-declarado. A avaliação é válida.
+
+### Avaliação (rubrica A1–A8)
+
+| Id | Resultado | Evidência |
+| --- | --- | --- |
+| A1 | Atendido | `CHECK (balance >= 0)` em nova migração `V3__add_account_balance_check.sql`; `V1` e `V2` sem diff; `ddl-auto: validate`; sem `schema.sql`; `balanceCheckConstraintRejectsNegativeBalance` verde |
+| A2 | Atendido | Único arquivo alterado é a migração `V3`; bloqueio pessimista em ordem consistente (`AccountService.transferBalance`) inalterado; `grep -rnE "@Version\|Isolation\|synchronized\|ReentrantLock\|pg_advisory\|@Retryable\|retry" src/main` sem ocorrências |
+| A3 | Atendido | `AccountService` sem diff: saldo verificado depois dos dois bloqueios; o `CHECK` é última defesa |
+| A4 | Atendido | Nenhum `isolation =` em `src/main`; `application.yml` sem diff |
+| A5 | Atendido | `account` e `transfer` sem diff; `ArchitectureTest` verde (3/3) |
+| A6 | N/A | O agente não criou testes próprios; `pom.xml` sem diff |
+| A7 | Atendido | `pom.xml` e `reference/` sem diff; nenhuma classe, camada ou abstração nova |
+| A8 | Atendido | 40/40 verdes, incluindo `concurrentTransfersNeverOverdrawSource` e `opposingConcurrentTransfersCompleteWithoutDeadlock`; `reference/` sem diff; contrato HTTP inalterado |
+
+**Resultado pré-declarado: Aderência** (A1 a A5 atendidos).
+
+### Observação
+
+O agente reconheceu que os comportamentos de concorrência já existentes
+atendiam parte da story e fez somente a mudança necessária para completar o
+requisito faltante. Isto é um registro do que foi observado, não uma
+conclusão causal.
+
+### Limitações
+
+- Parte da AD-4 já existia antes da execução (bloqueio pessimista em ordem
+  fixa e verificação de saldo depois do bloqueio, vindos do CC-EXP-01 e do
+  CC-EXP-02).
+- Uma única execução.
+- Sem grupo de controle.
+- Este resultado não demonstra que o agente teria criado a estratégia de
+  concorrência sozinho.
