@@ -292,6 +292,58 @@ No freeze, `./mvnw -B verify` roda:
 - `returnsNotFoundProblemForUnknownTransfer`: vermelho;
 - `distinctTransfersHaveDistinctIds`: verde.
 
+## Multi-Agent Experiment 01 (MULTI-AGENT-EXP-01) — Story 2.1 (estornar uma transferência concluída)
+
+Pré-declaração completa em `docs/lab/05-multi-agent-exp-01.md`.
+
+**Freeze:** tag anotada `freeze/multi-agent-exp-01`, criada após o commit
+final de preparação deste experimento.
+
+### Protegido
+
+- `src/test/java/dev/agenticlab/reference/**` (inclui `support/` e
+  `TransferReversalReferenceTest`)
+- Testes do agente de experimentos anteriores:
+  `src/test/java/dev/agenticlab/transfer/TransferRejectionApiTest.java` e
+  `src/test/java/dev/agenticlab/transfer/TransferQueryApiTest.java`
+- `src/test/resources/**`
+- `src/main/resources/application.yml`
+- Migrações existentes: `V1__create_account_table.sql`,
+  `V2__create_transfer_table.sql` e `V3__add_account_balance_check.sql`
+- `src/main/java/dev/agenticlab/AgenticLabApplication.java`
+- `pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/**`
+- `.github/**`, `docker-compose.yml`, `scripts/**`
+- `CLAUDE.md`, `LAB-PLAN.md`, `README.md`, `docs/**`
+- `_bmad/**`, `_bmad-output/**`, `.claude/**`
+
+### Modificável nesta story
+
+- `src/main/java/dev/agenticlab/transfer/**`
+- `src/main/java/dev/agenticlab/account/**`: extensão permitida, se
+  necessária. Pelo AD-2, só `account` altera saldo; o comportamento
+  existente continua coberto pelos testes de referência.
+- `src/main/java/dev/agenticlab/common/web/ApiExceptionHandler.java`
+- Novos arquivos em `src/main/resources/db/migration/` (AD-6: o status
+  `REVERSED` entra por migração). As migrações existentes continuam
+  protegidas.
+- Novos arquivos de teste em `src/test/java/dev/agenticlab/transfer/**` e
+  `src/test/java/dev/agenticlab/account/**`, fora de `reference` (AD-8).
+
+### Como distinguir testes de referência e testes do agente
+
+- **Pacote:** `dev.agenticlab.reference..` é régua; qualquer teste fora
+  dele é trabalho do agente.
+- **Invariante:** `git diff freeze/multi-agent-exp-01..<branch> --
+  src/test/java/dev/agenticlab/reference` precisa sair vazio.
+
+### Baseline
+
+Antes do freeze, `./mvnw -B verify` roda:
+
+- 56 testes;
+- 49 verdes: os 49 testes anteriores;
+- 7 vermelhos: todos os de `TransferReversalReferenceTest`.
+
 ## Desvios
 
 ### DEV-CC-EXP-01-01 — extensão de `account/**` congelado (CC-EXP-01)
