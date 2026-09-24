@@ -26,7 +26,7 @@ CI
 Human Review
 ```
 
-Durante o laboratório serão utilizados progressivamente:
+Durante a V1 do laboratório foram utilizados progressivamente:
 
 - BMAD Method
 - Claude Code
@@ -34,9 +34,9 @@ Durante o laboratório serão utilizados progressivamente:
 - OpenAI Codex
 - desenvolvimento multiagente
 
-As ferramentas **não serão introduzidas todas ao mesmo tempo**.
+As ferramentas **não foram introduzidas todas ao mesmo tempo**.
 
-Cada etapa será estudada separadamente para entender seus benefícios, limitações e impacto no processo de engenharia.
+Cada etapa foi estudada separadamente para observar seus benefícios, limitações e impacto no processo de engenharia. Os resultados estão registrados em `docs/lab/` e consolidados em `docs/playbook.md`.
 
 ---
 
@@ -175,39 +175,21 @@ docs/SETUP.md
 
 # Como estudar este laboratório
 
-Este projeto deve ser executado **sequencialmente**.
+A V1 foi executada de forma incremental. Para compreender a evolução do
+laboratório, a sequência principal é:
 
-Não pule diretamente para multiagente, Kafka ou arquiteturas distribuídas.
+1. Foundation
+2. BMAD
+3. Claude Code
+4. Devin
+5. Codex como reviewer
+6. Desenvolvimento multiagente
 
-A sequência planejada é:
+Cada etapa produziu documentação e evidências antes da introdução da próxima.
 
-```text
-Foundation
-    ↓
-BMAD
-    ↓
-Claude Code
-    ↓
-Devin
-    ↓
-Codex Review
-    ↓
-Multiagente
-    ↓
-Modernização
-    ↓
-Strangler Fig
-    ↓
-Arquitetura Hexagonal
-    ↓
-Eventos / Kafka
-    ↓
-Resiliência
-    ↓
-Observabilidade
-```
-
-Cada etapa deve produzir aprendizado documentado antes da próxima.
+Modernização de legado, Strangler Fig, eventos/Kafka, resiliência e
+observabilidade permanecem como possibilidades de evolução **pós-V1**. Não
+são requisitos para considerar esta primeira versão concluída.
 
 ---
 
@@ -237,7 +219,7 @@ CONCLUÍDO
 
 # Fase 2 — BMAD
 
-Utilizar BMAD para transformar a ideia inicial em engenharia estruturada.
+BMAD foi utilizado para transformar a ideia inicial em engenharia estruturada.
 
 Fluxo:
 
@@ -257,17 +239,14 @@ ADRs
 Stories
 ```
 
-Objetivo inicial:
-
-Criar apenas **3 a 5 stories**.
-
-O objetivo não é gerar um backlog enorme, mas aprender o processo.
+A fase produziu PRD, arquitetura e um backlog inicial pequeno, mantendo o
+foco no aprendizado do processo em vez de gerar um backlog excessivo.
 
 ---
 
 # Fase 3 — Claude Code
 
-Claude Code será utilizado inicialmente como coding agent.
+Claude Code foi utilizado como primeiro coding agent medido.
 
 Fluxo:
 
@@ -285,7 +264,7 @@ Pull Request
 Human Review
 ```
 
-Serão avaliados:
+Foram observados:
 
 - aderência à arquitetura;
 - qualidade do código;
@@ -298,9 +277,9 @@ Serão avaliados:
 
 # Fase 4 — Devin
 
-Uma story pequena será entregue ao Devin com maior autonomia.
+Uma story pequena foi entregue ao Devin com maior autonomia.
 
-O objetivo será comparar:
+O experimento permitiu observar:
 
 ```text
 Claude Code
@@ -323,7 +302,8 @@ Critérios observados:
 
 # Fase 5 — Codex como reviewer
 
-Introduzir separação entre agente implementador e agente revisor.
+Codex foi introduzido como reviewer independente, separando o papel do
+implementador do papel de revisão.
 
 Exemplo:
 
@@ -347,7 +327,7 @@ Claude Code / Devin
  Human Review
 ```
 
-O reviewer deverá procurar:
+O reviewer foi orientado a procurar:
 
 - bugs;
 - violações arquiteturais;
@@ -362,9 +342,10 @@ O reviewer deverá procurar:
 
 # Fase 6 — Multiagente
 
-Somente depois das fases anteriores.
+Esta fase foi executada depois das anteriores, preservando a separação entre
+implementação, revisão e decisão humana.
 
-Arquitetura experimental:
+Organização experimental:
 
 ```text
                     HUMANO
@@ -399,9 +380,13 @@ A pergunta principal é:
 
 ---
 
-# Evolução arquitetural
+# Evolução arquitetural pós-V1
 
-Depois da aplicação básica, o laboratório introduzirá cenários progressivamente mais próximos de sistemas reais.
+A V1 encerra o ciclo experimental principal em BMAD → Claude Code → Devin →
+Codex → desenvolvimento multiagente.
+
+Os cenários abaixo permanecem como possibilidades para uma próxima etapa
+deliberada do laboratório, e não como pendências da V1.
 
 Entre eles:
 
@@ -445,19 +430,19 @@ Os experimentos serão registrados em:
 docs/lab/
 ```
 
-Estrutura planejada:
+Experimentos principais realizados:
 
-```text
-docs/lab/
+- `CC-EXP-01` — transferência válida com Claude Code;
+- `CC-EXP-02` — rejeição de transferências inválidas com Claude Code;
+- `CC-EXP-03` — proteção de saldo e concorrência com Claude Code;
+- `DEVIN-EXP-01` — consulta de transferência com autonomia até Pull Request;
+- `CODEX-EXP-01` — revisão independente da implementação do Devin;
+- `MULTI-AGENT-EXP-01` — implementação, revisão humana independente,
+  revisão pelo Codex e decisão humana.
 
-01-bmad.md
-02-claude-code.md
-03-devin.md
-04-codex-review.md
-05-multi-agent.md
-```
+Os arquivos correspondentes estão em `docs/lab/`.
 
-Cada experimento deverá registrar, quando aplicável:
+Cada experimento registra, quando aplicável:
 
 ```text
 Objetivo
@@ -507,7 +492,12 @@ Procedimento para preparar uma máquina para executar o laboratório.
 
 ## docs/lab/
 
-Diário dos experimentos.
+Diário dos experimentos e evidências das execuções.
+
+## docs/playbook.md
+
+Consolidação das recomendações e aprendizados derivados dos experimentos.
+A V1 do playbook foi concluída após o experimento multiagente.
 
 ## docs/adr/
 
@@ -586,40 +576,47 @@ Decisões arquiteturais significativas continuam sob supervisão humana.
 - [x] Configurar Git/GitHub
 - [x] Configurar Java 21
 - [x] Configurar Maven
-- [x] Configurar Docker
-- [x] Configurar Docker Compose
+- [x] Configurar Docker e Docker Compose
 - [x] Configurar Node.js/NVM
-- [x] Criar setup reproduzível
-- [x] Criar verificador de ambiente
-- [ ] Configurar BMAD
-- [ ] Criar PRD
-- [ ] Definir arquitetura inicial
-- [ ] Criar ADRs iniciais
-- [ ] Criar 3–5 stories
-- [ ] Primeiro experimento com Claude Code
-- [ ] Experimento com Devin
-- [ ] Code review com Codex
-- [ ] Experimento multiagente
-- [ ] Modernização com Strangler Fig
-- [ ] Arquitetura orientada a eventos
-- [ ] Observabilidade
+- [x] Criar setup reproduzível e verificador de ambiente
+- [x] Configurar BMAD
+- [x] Criar PRD
+- [x] Definir arquitetura inicial
+- [x] Criar backlog inicial
+- [x] Executar experimentos com Claude Code
+- [x] Executar experimento com Devin
+- [x] Executar code review independente com Codex
+- [x] Executar experimento multiagente
+- [x] Consolidar Agent Engineering Playbook v1.0
+- [x] Atualizar LAB-PLAN para encerramento da V1
+- [ ] Executar validação final da aplicação
+- [ ] Criar tag de conclusão da V1
+
+### Fora do escopo de conclusão da V1
+
+- modernização com Strangler Fig;
+- arquitetura orientada a eventos/Kafka;
+- resiliência distribuída;
+- observabilidade avançada.
 
 ---
 
 # Estado atual
 
-```text
-Milestone: Foundation + BMAD
+**Status:** V1 em encerramento.
 
-Foundation:
-CONCLUÍDA
+As fases Foundation, BMAD, Claude Code, Devin, Codex como reviewer e
+desenvolvimento multiagente foram concluídas.
 
-Fase atual:
-BMAD
+O Agent Engineering Playbook v1.0 está consolidado e o plano mestre já
+reflete o encerramento da V1.
 
-Próximo objetivo:
-Configurar BMAD e iniciar a criação do PRD.
-```
+Restam apenas as atividades de fechamento:
+
+1. finalizar este README;
+2. executar a validação final;
+3. verificar o estado do repositório;
+4. criar a tag Git da V1.
 
 ---
 
