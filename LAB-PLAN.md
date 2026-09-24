@@ -543,7 +543,11 @@ O objetivo é compreender:
 
 ## 17. Evolução futura --- sistema legado
 
-Depois que a aplicação básica estiver funcionando, introduzir
+> **Escopo:** esta seção e as evoluções posteriores não fazem parte do
+> critério de conclusão da V1 do laboratório. Permanecem registradas como
+> possibilidades para uma próxima etapa deliberada.
+
+Depois que a aplicação básica estiver funcionando, poderá ser introduzido
 deliberadamente um cenário de modernização.
 
 Arquitetura conceitual:
@@ -809,26 +813,39 @@ perguntas como:
 
 ## 26. Estado atual
 
-Estado inicial do laboratório:
+Estado consolidado ao encerramento da primeira versão do laboratório:
 
-``` text
-STATUS: INICIANDO
+STATUS: **LABORATÓRIO V1 EM ENCERRAMENTO**
 
-Fase atual:
-FASE 1 — BMAD
+- FASE 1 — BMAD: **CONCLUÍDA**
+- FASE 2 — Claude Code: **CONCLUÍDA**
+- FASE 3 — Devin: **CONCLUÍDA**
+- FASE 4 — Codex como reviewer: **CONCLUÍDA**
+- FASE 5 — Desenvolvimento multiagente: **CONCLUÍDA**
+- Aplicação: **implementada e evoluída pelos experimentos**
+- PRD: **criado e utilizado como contrato dos experimentos**
+- Arquitetura: **definida e utilizada como guardrail**
+- Stories: **backlog V1 implementado e expandido com a Story 2.1**
+- Playbook: **versão 1.0 concluída**
 
-Código da aplicação:
-AINDA NÃO IMPLEMENTADO
+A sequência incremental originalmente planejada — BMAD, Claude Code, Devin,
+Codex e desenvolvimento multiagente — foi executada.
 
-PRD:
-AINDA NÃO CRIADO
+Os experimentos principais registrados são:
 
-Arquitetura:
-AINDA NÃO DEFINIDA FORMALMENTE
+- `CC-EXP-01` — implementação da transferência válida;
+- `CC-EXP-02` — rejeição de transferências inválidas;
+- `CC-EXP-03` — proteção de saldo e experimento de concorrência;
+- `DEVIN-EXP-01` — consulta de transferência com maior autonomia até PR;
+- `CODEX-EXP-01` — revisão independente da implementação do Devin;
+- `MULTI-AGENT-EXP-01` — implementação, revisão humana independente,
+  revisão pelo Codex e decisão humana sobre o merge.
 
-Stories:
-AINDA NÃO CRIADAS
-```
+Os resultados detalhados permanecem em `docs/lab/`. As recomendações
+derivadas dos experimentos foram consolidadas em `docs/playbook.md`.
+
+A responsabilidade final pelas decisões permaneceu humana durante o
+laboratório.
 
 ## 27. Primeiro Milestone
 
@@ -873,39 +890,22 @@ esse processo.
 
 ## 28. Próxima ação
 
-A próxima sessão/agente deve começar por:
+O Milestone 1 e as Fases 1–5 já foram executados.
 
-``` text
-MILESTONE 1
-```
+A próxima ação é concluir formalmente a V1 do laboratório:
 
-Primeiro verificar o ambiente Linux existente.
+1. revisar e atualizar a documentação final;
+2. atualizar o README para refletir o estado real do laboratório;
+3. executar a validação final da aplicação e dos testes;
+4. verificar que o repositório está limpo e sincronizado;
+5. criar uma tag Git identificando a conclusão da V1.
 
-Não assumir que ferramentas estão ou não instaladas.
+Não iniciar automaticamente modernização de legado, Strangler Fig, Kafka,
+sistemas distribuídos ou novos experimentos como requisito para encerrar
+esta versão.
 
-Verificar:
-
-``` bash
-git --version
-java -version
-mvn -version
-docker --version
-docker compose version
-node --version
-npm --version
-```
-
-Depois:
-
-1.  identificar ferramentas ausentes;
-2.  instalar somente o necessário;
-3.  criar ou preparar o repositório Git;
-4.  instalar/configurar BMAD;
-5.  iniciar a Fase 1;
-6.  gerar PRD;
-7.  discutir a arquitetura antes de aceitá-la;
-8.  gerar apenas 3--5 stories iniciais;
-9.  registrar os aprendizados.
+Esses temas permanecem como possíveis evoluções posteriores e devem começar
+como uma nova etapa deliberada do laboratório, caso haja interesse.
 
 ## 29. Instrução para uma nova IA
 
@@ -942,7 +942,14 @@ documento.
 
 ## 30. Visão de longo prazo
 
-A evolução pretendida é:
+A V1 encerra o ciclo experimental principal em BMAD → Claude Code → Devin →
+Codex → desenvolvimento multiagente.
+
+A parte de modernização, Strangler Fig, Kafka, resiliência, eventos e
+observabilidade abaixo permanece como visão de evolução posterior, e não
+como pendência necessária para declarar a V1 concluída.
+
+A evolução de longo prazo originalmente pretendida é:
 
 ``` text
                     AGENTIC JAVA LAB
