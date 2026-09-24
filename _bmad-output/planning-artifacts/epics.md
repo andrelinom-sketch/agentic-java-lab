@@ -11,6 +11,8 @@ inputDocuments:
 
 Este documento reúne o backlog da V1 do Agentic Java Lab: o epic e as cinco stories que decompõem os requisitos funcionais da API (FR-13 a FR-17) do PRD, sob as decisões do Architecture Spine. O backlog foi aprovado por Andrelino em 2026-09-21.
 
+O Epic 2, com a Story 2.1 (estorno, FR-19), é a primeira evolução pós-V1, aprovada por Andrelino em 2026-09-24.
+
 **Decisões em aberto (não tomadas aqui):**
 - Qual das stories será selecionada como experimento medido com Claude Code.
 - Quem implementa as demais stories e sob qual regime.
@@ -26,6 +28,7 @@ Este documento reúne o backlog da V1 do Agentic Java Lab: o epic e as cinco sto
 - **FR-15:** o Cliente da API pode criar uma Transferência de uma Conta de origem para uma Conta de destino. É rejeitada quando a origem não existe, o destino não existe, o valor não é maior que zero, o saldo da origem é insuficiente ou origem e destino são a mesma Conta. Uma solicitação rejeitada não cria Transferência e não gera identificador consultável.
 - **FR-16:** uma Transferência efetivada debita a origem e credita o destino pelo mesmo valor, preservando a soma dos saldos. Uma solicitação rejeitada não altera nenhum saldo. Nenhuma Transferência produz saldo negativo por insuficiência de fundos, inclusive sob operações concorrentes.
 - **FR-17:** cada Transferência possui identificador único e status e pode ser consultada por identificador. Transferência inexistente é tratada como não encontrada. O identificador único não implica idempotência.
+- **FR-19 (pós-V1):** o Cliente da API pode estornar uma Transferência concluída: a origem é creditada e o destino debitado pelo mesmo valor. Uma Transferência não é estornada duas vezes, inclusive sob solicitações concorrentes. Transferência inexistente é tratada como não encontrada. Sem saldo suficiente no destino, o estorno é rejeitado sem alterar nada.
 
 ### NonFunctional Requirements
 
@@ -38,11 +41,11 @@ Decisões do Architecture Spine que vinculam todas as stories:
 
 - **AD-1:** monólito de um módulo Maven, pacote por funcionalidade (`account`, `transfer`), código e API em inglês.
 - **AD-2:** `account` é o único dono do saldo. `transfer` usa só o serviço público de `account`. `web` nunca acessa `repository`.
-- **AD-3:** Spring Data JPA com PostgreSQL. Esquema só por migração Flyway. `@Transactional` no serviço. Uma Transferência é uma única transação atômica.
-- **AD-4:** bloqueio pessimista das duas contas em ordem crescente de id, saldo verificado depois do bloqueio, `CHECK (balance >= 0)` no banco.
+- **AD-3:** Spring Data JPA com PostgreSQL. Esquema só por migração Flyway. `@Transactional` no serviço. Uma Transferência é uma única transação atômica. Um estorno também.
+- **AD-4:** bloqueio pessimista das duas contas em ordem crescente de id, saldo verificado depois do bloqueio, `CHECK (balance >= 0)` no banco. No estorno, a Transferência é bloqueada antes das contas e o status é verificado depois do bloqueio.
 - **AD-5:** `BigDecimal` e `NUMERIC(19,2)`, BRL implícita, mais de 2 casas decimais rejeitado sem arredondar.
-- **AD-6:** UUID v4 gerado pela aplicação. Status único `COMPLETED`, guardado como texto.
-- **AD-7:** contrato HTTP: 201 com `Location` nos `POST`, 200 ou 404 nos `GET`, 400 para entrada inválida, 422 para regra de negócio, corpo Problem Details com código estável.
+- **AD-6:** UUID v4 gerado pela aplicação. Status guardado como texto: `COMPLETED` e, com o estorno, `REVERSED` (única transição `COMPLETED` → `REVERSED`, na própria Transferência).
+- **AD-7:** contrato HTTP: 201 com `Location` nos `POST` que criam recurso, 200 ou 404 nos `GET`, 400 para entrada inválida, 422 para regra de negócio, corpo Problem Details com código estável. `POST /transfers/{id}/reversal` responde 200 ou 404.
 - **AD-8:** testes com JUnit 5 e PostgreSQL real via Testcontainers. Testes de referência separados dos do agente.
 
 ### UX Design Requirements
@@ -58,12 +61,15 @@ Não se aplica. A V1 não tem interface de usuário.
 | FR-15 | 1.2 (criação), 1.3 (rejeições) |
 | FR-16 | 1.2 (débito e crédito), 1.3 (rejeição não altera saldos), 1.4 (concorrência) |
 | FR-17 | 1.2 (id e status na criação), 1.5 (consulta) |
+| FR-19 | 2.1 |
 
 ## Epic List
 
 **Epic 1: API de contas e transferências (V1).** Um Cliente da API cria contas, transfere valor entre elas com regras de negócio e integridade de saldo, e consulta contas e transferências.
 
 Ordem e dependências: 1.1 → 1.2 → 1.3, 1.4 e 1.5 (cada uma depende só de stories anteriores).
+
+**Epic 2: Evolução pós-V1.** Um Cliente da API estorna uma transferência concluída. Depende do Epic 1.
 
 ## Epic 1: API de contas e transferências (V1)
 
@@ -210,3 +216,61 @@ para saber o estado atual de uma operação que fiz.
 **Dado** duas Transferências efetivadas
 **Quando** comparo seus identificadores
 **Então** eles são diferentes.
+
+## Epic 2: Evolução pós-V1
+
+Evoluir a API depois da V1, preservando o desenho atual: sem nova camada, componente ou abstração sem necessidade. Cobre FR-19.
+
+A Story 2.1 é implementada num processo experimental multiagente. A aplicação bancária não se torna multiagente: multiagente é o processo experimental de desenvolvimento do laboratório, e a API continua um monólito (AD-1).
+
+### Story 2.1: Estornar uma transferência concluída
+
+**Depende de:** Stories 1.2, 1.4 e 1.5.
+
+Como Cliente da API,
+quero estornar uma Transferência concluída,
+para devolver o valor à Conta de origem.
+
+**Acceptance Criteria:**
+
+**Dado** uma Transferência `COMPLETED` de A para B com valor 100.00, depois da qual A tem 900.00 e B tem 600.00
+**Quando** faço `POST /transfers/{id}/reversal`
+**Então** recebo 200 com a Transferência no formato de `POST /transfers` e `status` `REVERSED`
+**E** `GET /accounts/{id}` mostra A com 1000.00 e B com 500.00
+**E** a soma dos saldos é a mesma antes e depois do estorno.
+
+**Dado** uma Transferência estornada
+**Quando** faço `GET /transfers/{id}`
+**Então** recebo 200 com `status` `REVERSED`.
+
+**Dado** uma Transferência já estornada
+**Quando** faço `POST /transfers/{id}/reversal` de novo
+**Então** recebo 422 no formato Problem Details com código `TRANSFER_ALREADY_REVERSED`
+**E** nenhum saldo muda.
+
+**Dado** um identificador de Transferência inexistente
+**Quando** faço `POST /transfers/{id}/reversal`
+**Então** recebo 404 no formato Problem Details com código `TRANSFER_NOT_FOUND`.
+
+**Dado** uma Transferência `COMPLETED` cuja Conta de destino não tem, no momento do estorno, saldo suficiente para devolver o valor
+**Quando** faço `POST /transfers/{id}/reversal`
+**Então** o estorno falha atomicamente com 422 no formato Problem Details com código `INSUFFICIENT_FUNDS`
+**E** a Transferência permanece `COMPLETED`
+**E** nenhum saldo muda.
+
+**Dado** várias solicitações simultâneas de estorno da mesma Transferência
+**Quando** elas são executadas concorrentemente
+**Então** exatamente uma recebe 200 e as demais recebem 422 com código `TRANSFER_ALREADY_REVERSED`
+**E** os saldos refletem um único estorno
+**E** nenhum saldo fica negativo.
+
+**Dado** o processamento de um estorno
+**Quando** ele acontece
+**Então** a devolução dos saldos e a mudança de status ocorrem em uma única transação atômica
+**E** a Transferência é bloqueada antes das Contas, e as Contas em ordem crescente de id
+**E** só o serviço de `account` altera saldo, e `transfer` usa apenas o serviço público de `account`
+**E** o estorno não cria outra Transferência.
+
+**Dado** o banco de dados
+**Quando** inspeciono o esquema
+**Então** o status da Transferência admite apenas `COMPLETED` e `REVERSED`, restrição adicionada por migração Flyway.

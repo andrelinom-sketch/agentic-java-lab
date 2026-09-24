@@ -4,11 +4,11 @@ type: architecture-spine
 purpose: build-substrate
 altitude: initiative
 paradigm: 'monólito modular, pacote por funcionalidade, em camadas leves'
-scope: 'V1 do Agentic Java Lab: API de contas e transferências e os instrumentos de medição do método (CI, testes de referência, marco de congelamento)'
+scope: 'V1 do Agentic Java Lab: API de contas e transferências e os instrumentos de medição do método (CI, testes de referência, marco de congelamento); evolução pós-V1: estorno (FR-19)'
 status: draft
 created: '2026-09-21'
-updated: '2026-09-21'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, NFR-1, NFR-3]
+updated: '2026-09-24'
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, NFR-1, NFR-3]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-agentic-java-lab-2026-09-21/prd.md
   - _bmad-output/planning-artifacts/briefs/brief-agentic-java-lab-2026-09-20/brief.md
@@ -44,27 +44,28 @@ graph LR
 
 ### AD-1 — Monólito de um módulo, pacote por funcionalidade [ADOPTED]
 
-- **Binds:** FR-13 a FR-17
+- **Binds:** FR-13 a FR-17, FR-19
 - **Prevents:** pacotes por camada técnica global, módulos Maven extras e camadas ou classes criadas só por simetria.
 - **Rule:** um módulo Maven. Pacotes `account` e `transfer`. Código, API e nomes de domínio em inglês. O ArchUnit protege só as fronteiras de AD-2, sem regras artificiais. Qualquer regra nova de arquitetura exige aprovação humana (NFR-3).
 
 ### AD-2 — `account` é o único dono do saldo [ADOPTED]
 
-- **Binds:** FR-14, FR-15, FR-16
+- **Binds:** FR-14, FR-15, FR-16, FR-19
 - **Prevents:** dois donos da mutação de saldo e acoplamento entre funcionalidades.
 - **Rule:** só `account` altera saldo. `transfer` orquestra e usa apenas o serviço público de `account`, nunca seu `repository` nem seu `model`. `web` nunca acessa `repository`.
 
 ### AD-3 — Persistência e transações [ADOPTED]
 
-- **Binds:** FR-13 a FR-17
+- **Binds:** FR-13 a FR-17, FR-19
 - **Prevents:** esquema fora do Git e transferências parcialmente aplicadas.
-- **Rule:** Spring Data JPA com PostgreSQL. O esquema muda só por migração Flyway. `@Transactional` no serviço. Uma Transferência é uma única transação atômica: débito, crédito e registro.
+- **Rule:** Spring Data JPA com PostgreSQL. O esquema muda só por migração Flyway. `@Transactional` no serviço. Uma Transferência é uma única transação atômica: débito, crédito e registro. Um estorno também: devolução dos saldos e mudança de status.
 
 ### AD-4 — Concorrência e saldo [ADOPTED]
 
-- **Binds:** FR-16
-- **Prevents:** saldo negativo sob operações concorrentes e deadlock entre transferências cruzadas.
+- **Binds:** FR-16, FR-19
+- **Prevents:** saldo negativo sob operações concorrentes, deadlock entre transferências cruzadas e estorno duplicado.
 - **Rule:** bloqueio pessimista (`SELECT … FOR UPDATE`) das duas contas **em ordem crescente de id**. O saldo é verificado depois do bloqueio. O banco impõe `CHECK (balance >= 0)`. Isolamento padrão do PostgreSQL.
+- **Estorno (FR-19, aprovado em 2026-09-24):** o serviço bloqueia a linha da Transferência (`SELECT … FOR UPDATE`) **antes** das contas e verifica o status depois do bloqueio. Ordem de bloqueio: Transferência, depois as duas contas em ordem crescente de id. A devolução usa o mesmo caminho de saldo de uma Transferência, com origem e destino invertidos.
 
 ### AD-5 — Representação monetária [ADOPTED]
 
@@ -74,13 +75,14 @@ graph LR
 
 ### AD-6 — IDs e status [ADOPTED]
 
-- **Binds:** FR-13, FR-17
+- **Binds:** FR-13, FR-17, FR-19
 - **Prevents:** identificadores incompatíveis e estados especulativos.
-- **Rule:** UUID v4 gerado pela aplicação, para conta e transferência. O status de Transferência tem um único valor, `COMPLETED`, guardado como texto. Um novo estado só entra por migração, com necessidade real e aprovação humana.
+- **Rule:** UUID v4 gerado pela aplicação, para conta e transferência. O status de Transferência é guardado como texto e tem dois valores: `COMPLETED` e `REVERSED`. A única transição é `COMPLETED` → `REVERSED`, pelo estorno, na própria Transferência original: o estorno não cria outra Transferência nem outra entidade. Um novo estado só entra por migração, com necessidade real e aprovação humana.
+- **`REVERSED` (FR-19, aprovado em 2026-09-24):** entra por migração Flyway que restringe a coluna com `CHECK (status IN ('COMPLETED', 'REVERSED'))`.
 
 ### AD-7 — Contrato HTTP [ADOPTED]
 
-- **Binds:** FR-13 a FR-17
+- **Binds:** FR-13 a FR-17, FR-19
 - **Prevents:** clientes e testes com expectativas divergentes.
 - **Rule:**
 
@@ -90,8 +92,11 @@ graph LR
 | `GET /accounts/{id}` | 200, ou 404 se inexistente |
 | `POST /transfers` | 201 + `Location`, corpo `{id, sourceAccountId, destinationAccountId, amount, status, createdAt}` |
 | `GET /transfers/{id}` | 200, ou 404 se inexistente |
+| `POST /transfers/{id}/reversal` | 200, corpo da Transferência atualizada (mesmo formato de `POST /transfers`), ou 404 se inexistente |
 
-  Erros: **400** para entrada inválida (campo ausente, `amount <= 0`, `initialBalance < 0`). **422** para regra de negócio (conta inexistente, mesma conta, saldo insuficiente). Corpo no formato Problem Details (RFC 9457) com um código estável. Sem prefixo de versão e sem autenticação.
+  `POST /transfers/{id}/reversal` é o único `POST` sem 201 e sem `Location`, porque não cria recurso (AD-6). Aprovado em 2026-09-24 (FR-19).
+
+  Erros: **400** para entrada inválida (campo ausente, `amount <= 0`, `initialBalance < 0`). **422** para regra de negócio (conta inexistente, mesma conta, saldo insuficiente, Transferência já estornada com o código `TRANSFER_ALREADY_REVERSED`). Corpo no formato Problem Details (RFC 9457) com um código estável. Sem prefixo de versão e sem autenticação.
 
 ### AD-8 — Testes [ADOPTED]
 
@@ -164,6 +169,7 @@ erDiagram
 | --- | --- | --- |
 | Contas (FR-13, FR-14) | `account` | AD-1, AD-2, AD-3, AD-5, AD-6, AD-7 |
 | Transferências (FR-15, FR-16, FR-17) | `transfer`, usando o serviço de `account` | AD-2, AD-3, AD-4, AD-5, AD-6, AD-7 |
+| Estorno (FR-19, pós-V1) | `transfer`, usando o serviço de `account` | AD-2, AD-3, AD-4, AD-6, AD-7 |
 | CI comum (FR-3, FR-4) | `.github/workflows/ci.yml` | AD-9 |
 | Testes de referência (FR-4) | `src/test/.../reference` | AD-8, AD-10 |
 | Congelamento e baseline (FR-1, FR-2, FR-5, FR-18) | tag `freeze/exp-NN` e `docs/lab/baseline.md` | AD-10 |

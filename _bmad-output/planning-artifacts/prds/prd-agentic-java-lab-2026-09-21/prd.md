@@ -2,7 +2,7 @@
 title: "PRD: Agentic Java Lab"
 status: draft
 created: 2026-09-21
-updated: 2026-09-21
+updated: 2026-09-24
 ---
 
 # PRD: Agentic Java Lab
@@ -96,6 +96,7 @@ Os termos vêm do brief e do addendum, exceto: Experimento, Estudo de caso e Mar
 - **Conta** — entidade da API que possui um identificador e um Saldo, criada com Saldo inicial maior ou igual a zero. *Origem: inferido (aprovado por Andrelino em 2026-09-21).*
 - **Saldo** — valor monetário mantido em uma Conta. *Origem: inferido (aprovado por Andrelino em 2026-09-21).*
 - **Transferência** — operação aceita e persistida que move valor de uma Conta de origem para uma Conta de destino. Possui identificador único e status. Uma solicitação rejeitada não é uma Transferência. *Origem: conversa (aceita e persistida); o restante, inferido (aprovado por Andrelino em 2026-09-21).*
+- **Estorno** — devolução do valor de uma Transferência concluída: a Conta de origem recebe o valor de volta e a Conta de destino o perde. Uma Transferência é estornada no máximo uma vez. *Origem: conversa (aprovado por Andrelino em 2026-09-24).*
 - **V1** — o primeiro ciclo, de 20/09/2026 a 18/10/2026, que percorre uma **fatia vertical** completa: BMAD → uma story → Claude Code → CI comum → revisão humana → registro completo → primeira atualização do playbook.
 
 ## 4. Funcionalidades
@@ -325,6 +326,21 @@ Cada Transferência possui identificador único e status, e pode ser consultada 
 
 **Fora de escopo:** o identificador único **não** implica idempotência. Reenviar a mesma requisição não é tratado como a mesma Transferência na V1.
 
+#### FR-19: Estornar uma transferência concluída
+
+**Camada:** API · **Origem:** conversa (aprovado por Andrelino em 2026-09-24) · **Escopo:** pós-V1 (ver §6)
+
+O Cliente da API pode estornar uma Transferência concluída, identificada pelo seu identificador.
+
+**Consequências (testáveis):**
+- O estorno credita a Conta de origem e debita a Conta de destino pelo valor da Transferência, preservando a soma dos saldos.
+- Depois do estorno, a consulta da Transferência (FR-17) mostra que ela foi estornada.
+- Uma Transferência não pode ser estornada duas vezes, inclusive diante de solicitações concorrentes.
+- Estornar uma Transferência inexistente é tratado como não encontrado.
+- Se a Conta de destino não tem saldo suficiente no momento do estorno, o estorno é rejeitado: a Transferência permanece concluída e nenhum saldo muda.
+
+**Fora de escopo:** estorno parcial; a representação do estorno, o contrato HTTP e o mecanismo contra estorno duplicado (decisões da arquitetura).
+
 ### 4.7 Requisitos não funcionais transversais
 
 #### NFR-1: Publicação segura
@@ -363,6 +379,8 @@ Um agente não toma decisão arquitetural significativa em silêncio. A decisão
 **Fora da V1:** Devin, Codex como revisor, multiagente, legado e Strangler Fig, Kafka, resiliência distribuída, observabilidade avançada, UI, autenticação e cloud *(brief)*; idempotência de transferências, depósito e saque *(conversa)*.
 
 Se a fatia não estiver concluída em 18/10/2026, o resultado registrado é "V1 incompleta", sem extensão de prazo. *Origem: brief.*
+
+**Evolução pós-V1 (2026-09-24).** O FR-19 (estorno) entra como primeira evolução funcional depois da V1, aprovado por Andrelino em 2026-09-24. Ele será implementado num processo experimental multiagente. **A aplicação bancária não se torna multiagente:** multiagente é o processo experimental de desenvolvimento do laboratório, e a API continua um monólito (AD-1). A exclusão de "multiagente" acima vale para a V1. *Origem: conversa.*
 
 ## 7. Métricas de sucesso
 
