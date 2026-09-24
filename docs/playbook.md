@@ -30,6 +30,7 @@ evidências.
 | CC-EXP-01 | [`docs/lab/02-claude-code-exp-01.md`](lab/02-claude-code-exp-01.md) | `freeze/exp-01` → `2cc86e5` | `df644e4` (PR #1, merge `2b45a49`) | `8040fa0` |
 | CC-EXP-02 | [`docs/lab/02-claude-code-exp-02.md`](lab/02-claude-code-exp-02.md) | `freeze/exp-02` → `561944f` | `d6a7d9e` (PR #2, merge `1565c67`) | — (resultado `56cc592`, transcript `b4fde94`) |
 | CC-EXP-03 | [`docs/lab/02-claude-code-exp-03.md`](lab/02-claude-code-exp-03.md) | `freeze/exp-03` → `6b72502` | `3fe8876` (PR #3, merge `b521a5a`) | — (rubrica `a47af2a`, resultado `1bb829a`, transcript `8e80a14`) |
+| DEVIN-EXP-01 | [`docs/lab/03-devin-exp-01.md`](lab/03-devin-exp-01.md) | `freeze/devin-exp-01` → `68870d2` | `63a343d` (PR #4, merge `4f63243`) | — (resultado `81d15a7`, sem transcript) |
 
 O CC-EXP-01 é uma única execução de Claude Code sobre a Story 1.2
 (transferência válida). O CC-EXP-02 é uma única execução de Claude Code
@@ -37,8 +38,11 @@ sobre a Story 1.3 (rejeição de transferências inválidas), desenhada para
 testar a H3; só a H3 foi atualizada com ele. O CC-EXP-03 é uma única
 execução de Claude Code sobre a Story 1.4 (saldo não negativo sob
 concorrência), a partir de uma baseline que já implementava parte da AD-4;
-só a H4 foi atualizada com ele. As limitações gerais estão no fim deste
-documento e valem para todas as recomendações abaixo.
+só a H4 foi atualizada com ele. O DEVIN-EXP-01 é uma única execução de
+Devin sobre a Story 1.5 (consultar transferência pelo identificador), com
+autonomia autorizada até o Pull Request; ele originou a H7 e acrescentou
+observações à H3 e à H6. As limitações gerais estão no fim deste documento e
+valem para todas as recomendações abaixo.
 
 ---
 
@@ -186,6 +190,22 @@ mesmo vale para outros tipos de teste.
 - A falha de premissa foi encontrada por uma única revisão, de um único
   avaliador, que também desenhou o experimento. Não se sabe se há outras
   não detectadas.
+
+**Observação complementar — DEVIN-EXP-01** (outro agente; não é um teste
+da H3)
+- O prompt **autorizava**, sem exigir, testes próprios fora de
+  `reference/**`. Ver [`03-devin-exp-01.md`](lab/03-devin-exp-01.md),
+  "Prompt exato a ser dado ao agente".
+- `63a343d` adiciona 6 testes do agente em
+  `src/test/java/dev/agenticlab/transfer/TransferQueryApiTest.java`, contra
+  PostgreSQL real via Testcontainers. `reference/**` sem diff.
+- Na revisão humana independente, 2 dos 6 testes apresentaram sobreposição
+  com a referência ou baixo valor adicional, e alguns fazem assertions sobre
+  o body sem verificar antes que ele não é nulo.
+
+Isso é compatível com o aprendizado provisório acima: a execução verde não
+bastou para avaliar o valor dos testes do agente, e foi a revisão que
+identificou as ressalvas.
 
 **O que futuros experimentos podem mostrar:**
 - se o pedido explícito produz testes em outras stories, agentes e modelos;
@@ -350,10 +370,96 @@ que as intervenções sejam contadas a partir de artefatos.
 - Não foi avaliado o que preservar (transcript completo, log de comandos,
   marcações de tempo) nem o custo disso.
 
+**Observação complementar — DEVIN-EXP-01**
+- O registro afirma nenhuma intervenção técnica humana e nenhuma mensagem
+  adicional ao agente. Não há transcript nem exportação da sessão no
+  repositório (`docs/lab/evidence/` não tem diretório do DEVIN-EXP-01).
+- O custo (US$ 2,70) foi registrado a partir do saldo e do uso exibidos
+  pela ferramenta antes e depois da execução.
+- O commit do agente, `63a343d`, tem como author e committer a identidade Git
+  do usuário. O Devin aparece só no trailer `Co-Authored-By`. O PR foi aberto
+  pelo app `devin-ai-integration`.
+
+Isso reforça a lacuna descrita nesta hipótese: as afirmações sobre
+intervenções continuam dependendo do relato do avaliador. A autoria Git,
+sozinha, também não distingue o trabalho do agente do trabalho humano.
+
 **O que futuros experimentos podem mostrar:**
 - se a evidência preservada permite aplicar a taxonomia de intervenções de
   forma consistente entre avaliadores (SM-2);
 - qual é o menor artefato que sustenta essas afirmações.
+
+---
+
+## H7 — Delegar o ciclo completo até o PR, com merge humano
+
+**Status:** Hipótese · **Origem:** DEVIN-EXP-01
+
+**Recomendação atual:** para uma story pequena, com contrato executável
+congelado, arquitetura explícita e guardrails claros, considerar delegar a
+um agente o ciclo completo até o Pull Request: análise, branch,
+implementação, testes, commit, push e abertura do PR. O merge continua sendo
+decisão humana, depois de uma revisão independente do diff e do CI.
+
+**Fatos observados — DEVIN-EXP-01**
+- Story 1.5, a partir de `freeze/devin-exp-01` (`68870d2`). No freeze,
+  `TransferQueryReferenceTest` tinha 2 testes vermelhos e 1 verde. Ver
+  [`baseline.md`](lab/baseline.md), seção DEVIN-EXP-01.
+- A autonomia foi autorizada no prompt até o PR, com o merge reservado ao
+  humano. Ver [`03-devin-exp-01.md`](lab/03-devin-exp-01.md).
+- O agente criou a branch `experiment/devin-exp-01-transfer-query`, fez a
+  implementação e os testes, criou o commit `63a343d`, fez o push e abriu o
+  PR #4.
+- O registro informa nenhuma intervenção técnica humana e nenhuma mensagem
+  adicional durante a execução (ver H6 sobre a sustentação disso).
+- O diff tem 5 arquivos, +181 / -0: `TransferController`, `TransferService`,
+  a nova `TransferNotFoundException` e `ApiExceptionHandler`, mais 6 testes
+  próprios fora de `reference/**`.
+- Nenhum artefato protegido foi alterado. `reference/**` saiu sem diff.
+- CI do PR verde: 49/49 testes, incluindo os 3 de
+  `TransferQueryReferenceTest`.
+- A revisão humana independente observou aderência a AD-1, AD-2, AD-5,
+  AD-6, AD-7 e AD-8, com `TRANSFER_NOT_FOUND` em Problem Details, e nenhuma
+  dependência, camada ou abstração nova.
+- O Maven Central respondeu HTTP 429 no ambiente do agente. O agente
+  contornou o erro com um mirror configurado só em `~/.m2/settings.xml`, sem
+  versionar essa configuração e sem intervenção humana.
+- Custo observado: US$ 2,70.
+- O merge foi feito por decisão humana, com merge commit (`4f63243`), depois
+  da revisão.
+
+**Interpretação:** nesta execução, o pacote de contexto (story pequena,
+contrato vermelho congelado, Spine, `CLAUDE.md` e baseline com as listas de
+protegido e modificável) foi suficiente para que o agente fosse da análise
+ao PR sem intervenção técnica. O resultado ficou dentro dos guardrails e
+das decisões arquiteturais avaliadas. A revisão humana antes do merge ainda
+encontrou ressalvas nos testes do agente (ver H3) e na autoria Git (ver H6).
+
+**Limitações:**
+- Uma única execução, de um único agente, sem grupo de controle.
+- A story é pequena e muito especificada. A consulta por id tinha um padrão
+  análogo pronto em `account` (`GET /accounts/{id}` com
+  `ACCOUNT_NOT_FOUND`).
+- A arquitetura, o tratador global de erros e o contrato já existiam. O
+  experimento não mostra o que o agente faria diante de decisões
+  arquiteturais abertas.
+- A ausência de intervenção não pode ser verificada por um artefato da
+  sessão (H6).
+- O contorno do HTTP 429 dependeu de uma configuração local não versionada.
+  O ambiente do agente diferiu do CI nesse ponto.
+- Houve um único avaliador, que também desenhou o experimento e aprovou os
+  testes de referência.
+- Esta hipótese não compara agentes. O DEVIN-EXP-01 e os CC-EXP diferem em
+  story, grau de autonomia e prompt.
+
+**O que futuros experimentos podem mostrar:**
+- se o ciclo até o PR se mantém em stories com regra de negócio,
+  concorrência ou decisões arquiteturais não cobertas pelos artefatos;
+- se o agente para e pede aprovação quando encontra uma decisão
+  arquitetural significativa, como o prompt determina;
+- quanto da revisão humana antes do merge encontra problemas que o CI não
+  encontra;
+- como o custo varia com o tamanho e a complexidade da story.
 
 ---
 
@@ -362,7 +468,10 @@ que as intervenções sejam contadas a partir de artefatos.
 - Cada recomendação deriva de **uma única execução** por story: um agente,
   um modelo, sem repetição e sem grupo de controle. A H3 tem duas
   execuções (CC-EXP-01 e CC-EXP-02), e a H4 também (CC-EXP-01 e CC-EXP-03),
-  sempre sobre stories diferentes.
+  sempre sobre stories diferentes. A H7 tem uma única execução
+  (DEVIN-EXP-01).
+- O DEVIN-EXP-01 usou outro agente, outro grau de autonomia e outra story.
+  Nenhuma comparação entre agentes é feita neste playbook.
 - A story medida é pequena, e a parte difícil do domínio ainda não foi
   exercitada.
 - No CC-EXP-03, a concorrência foi verificada pelos testes de referência,
@@ -380,3 +489,4 @@ que as intervenções sejam contadas a partir de artefatos.
 | 0.1 | 2026-09-22 | Primeira versão: H1–H6 registradas como hipóteses | CC-EXP-01 (`2cc86e5`, `df644e4`, `2b45a49`, `8040fa0`) |
 | 0.2 | 2026-09-23 | H3 atualizada com o CC-EXP-02; segue hipótese. Aprendizado provisório sobre revisão do cenário dos testes do agente | CC-EXP-02 (`561944f`, `d6a7d9e`, `56cc592`, `b4fde94`, `1565c67`) |
 | 0.3 | 2026-09-23 | H4 atualizada com o CC-EXP-03; segue hipótese. Aprendizado provisório sobre baseline parcial com arquitetura explícita | CC-EXP-03 (`6b72502`, `3fe8876`, `a47af2a`, `1bb829a`, `8e80a14`, `b521a5a`) |
+| 0.4 | 2026-09-24 | H7 criada como hipótese (delegação do ciclo até o PR, com merge humano). Observações complementares na H3 (testes do agente) e na H6 (evidência da sessão e autoria Git) | DEVIN-EXP-01 (`68870d2`, `63a343d`, `81d15a7`, `4f63243`) |
