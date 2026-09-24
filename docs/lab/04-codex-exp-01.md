@@ -156,4 +156,100 @@ coincidente com a revisão humana, novo e procedente, ou improcedente.
 
 ## Registro pós-execução
 
-A preencher após a execução.
+### Execução
+
+- Codex CLI `0.156.1`, modelo GPT-6-Astra.
+- Revisão no worktree isolado `../agentic-java-lab-codex-exp-01`, em
+  detached HEAD `63a343d`.
+- Uma única interação com o Codex: o prompt pré-declarado acima.
+- Nenhuma intervenção humana durante a revisão.
+- Nenhuma solicitação de permissão; nenhuma aprovação concedida.
+- O Codex não executou testes, por decisão própria (o prompt permitia).
+  Declarou revisão estática restrita a `63a343d` e ao seu parent.
+- Ao final, `git status -sb` no worktree: `## HEAD (sem ramo)`, sem
+  alterações.
+- `main` permaneceu limpa e sincronizada com `origin/main`.
+- Não há transcript nem exportação da sessão no repositório
+  (`docs/lab/evidence/` não tem diretório do CODEX-EXP-01).
+
+### Resposta do Codex
+
+1. **Finding — severidade baixa.**
+   `src/test/java/dev/agenticlab/transfer/TransferQueryApiTest.java`,
+   método `queryDoesNotChangeBalances`. As duas chamadas a
+   `getTransfer(transferId)` descartam suas respostas, e o teste verifica
+   apenas os saldos depois. Os GETs desse cenário poderiam retornar erro e o
+   teste continuaria verde. Impacto apontado: falso positivo localizado na
+   cobertura de ausência de efeitos colaterais.
+2. **Sugestões opcionais:** nenhuma.
+3. Nenhum bug de produção, regressão ou violação arquitetural relevante
+   identificado. Consulta por id, DTO e `404`/`TRANSFER_NOT_FOUND`
+   considerados coerentes com o contrato.
+
+### Comparação com a revisão humana independente
+
+Referência: [`03-devin-exp-01.md`](03-devin-exp-01.md), "Revisão humana
+independente".
+
+| Finding do Codex | Classificação | Evidência |
+| --- | --- | --- |
+| `queryDoesNotChangeBalances` descarta as respostas dos GETs | **Novo e procedente** | Ver abaixo |
+
+- **Procedente:** em `63a343d`, as duas chamadas a `getTransfer` nesse
+  método não têm o retorno atribuído nem verificado. As únicas assertions
+  são sobre os saldos, obtidos por `GET /accounts/{id}`. O impacto é
+  limitado: o status `200` do `GET /transfers/{id}` é verificado em outros
+  testes do mesmo commit e na referência.
+- **Novo:** a revisão humana registrada não menciona esse teste nem esse
+  problema. Ela registra "sobreposição ou baixo valor em 2 dos 6 testes"
+  sem identificar quais. O registro não permite afirmar nem excluir que
+  `queryDoesNotChangeBalances` estivesse entre eles. A ressalva sobre
+  assertions sem verificação prévia de body não nulo não corresponde a este
+  finding: o método não faz assertion sobre o body dos GETs.
+
+Ressalvas da revisão humana que o Codex **não** apontou:
+
+- sobreposição ou baixo valor em 2 dos 6 testes adicionais;
+- assertions sobre o body sem verificação prévia de que ele não é nulo.
+
+Nas conclusões sobre produção e arquitetura, as duas revisões convergem:
+nenhuma encontrou bug de produção nem violação arquitetural, e ambas
+consideraram `TRANSFER_NOT_FOUND` coerente com o contrato.
+
+Nenhum finding foi classificado como improcedente.
+
+### O que o experimento demonstra
+
+Nesta execução, o Codex, isolado das conclusões anteriores, revisou o
+commit sem alterar o repositório e apontou um problema real num teste do
+agente: um teste verde que não verifica parte do que executa. Esse problema
+não consta da revisão humana registrada.
+
+### O que o experimento não demonstra
+
+- Que o Codex encontre problemas que um humano não encontraria; a revisão
+  humana registrada não identifica os testes de baixo valor, então a
+  sobreposição entre as duas não pode ser medida por completo.
+- Que a revisão estática baste; o Codex não executou testes.
+- Que o Codex detecte problemas de produção; o commit revisado não tinha
+  nenhum conhecido.
+- Qualquer comparação entre agentes ou modelos.
+
+### Limitações
+
+- Uma única execução, um único commit revisado, pequeno (+181 / -0).
+- O isolamento quanto a commits posteriores se apoia na declaração do
+  próprio Codex e no relato do avaliador, sem artefato da sessão (H6).
+- O Codex não cobriu as duas ressalvas da revisão humana; não se sabe se
+  isso decorre do modelo, do prompt ou da não execução de testes.
+- A classificação foi feita por um único avaliador, que também desenhou o
+  experimento e fez a revisão humana de referência.
+- O custo não foi registrado.
+
+### Conclusão
+
+Evidência de uma única execução, sem generalização: uma revisão
+independente por outro agente acrescentou um finding de teste procedente,
+de severidade baixa, ao que a revisão humana registrou, e não apontou as
+ressalvas que a revisão humana registrou. Uma revisão não substituiu a
+outra neste caso.

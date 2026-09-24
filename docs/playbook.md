@@ -31,6 +31,7 @@ evidências.
 | CC-EXP-02 | [`docs/lab/02-claude-code-exp-02.md`](lab/02-claude-code-exp-02.md) | `freeze/exp-02` → `561944f` | `d6a7d9e` (PR #2, merge `1565c67`) | — (resultado `56cc592`, transcript `b4fde94`) |
 | CC-EXP-03 | [`docs/lab/02-claude-code-exp-03.md`](lab/02-claude-code-exp-03.md) | `freeze/exp-03` → `6b72502` | `3fe8876` (PR #3, merge `b521a5a`) | — (rubrica `a47af2a`, resultado `1bb829a`, transcript `8e80a14`) |
 | DEVIN-EXP-01 | [`docs/lab/03-devin-exp-01.md`](lab/03-devin-exp-01.md) | `freeze/devin-exp-01` → `68870d2` | `63a343d` (PR #4, merge `4f63243`) | — (resultado `81d15a7`, sem transcript) |
+| CODEX-EXP-01 | [`docs/lab/04-codex-exp-01.md`](lab/04-codex-exp-01.md) | — (revisão de `63a343d`, pré-declaração `f3b793b`) | — (sem implementação) | — (sem transcript) |
 
 O CC-EXP-01 é uma única execução de Claude Code sobre a Story 1.2
 (transferência válida). O CC-EXP-02 é uma única execução de Claude Code
@@ -41,8 +42,10 @@ concorrência), a partir de uma baseline que já implementava parte da AD-4;
 só a H4 foi atualizada com ele. O DEVIN-EXP-01 é uma única execução de
 Devin sobre a Story 1.5 (consultar transferência pelo identificador), com
 autonomia autorizada até o Pull Request; ele originou a H7 e acrescentou
-observações à H3 e à H6. As limitações gerais estão no fim deste documento e
-valem para todas as recomendações abaixo.
+observações à H3 e à H6. O CODEX-EXP-01 é uma única revisão independente,
+pelo Codex, do commit `63a343d`; acrescentou uma observação à H3. As
+limitações gerais estão no fim deste documento e valem para todas as
+recomendações abaixo.
 
 ---
 
@@ -207,12 +210,28 @@ Isso é compatível com o aprendizado provisório acima: a execução verde não
 bastou para avaliar o valor dos testes do agente, e foi a revisão que
 identificou as ressalvas.
 
+**Observação complementar — CODEX-EXP-01** (revisão por outro agente; não
+é um teste da H3)
+- O Codex revisou `63a343d` de forma independente, sem executar testes. Ver
+  [`04-codex-exp-01.md`](lab/04-codex-exp-01.md), "Registro pós-execução".
+- Apontou um finding de severidade baixa, classificado como novo e
+  procedente: em `queryDoesNotChangeBalances`, as respostas dos dois GETs
+  são descartadas, e o teste ficaria verde mesmo se eles retornassem erro.
+- Não apontou as duas ressalvas da revisão humana sobre os testes do
+  agente.
+
+Isso é outro caso de teste verde que não verifica parte do que executa.
+Neste caso, foi encontrado por outro agente atuando como reviewer, não pela
+revisão humana registrada, e esse agente não encontrou o que a revisão
+humana encontrou.
+
 **O que futuros experimentos podem mostrar:**
 - se o pedido explícito produz testes em outras stories, agentes e modelos;
 - se o agente encontra casos além da referência sem conhecer uma checklist
   de avaliação;
 - com que frequência testes do agente passam sem exercitar o cenário
-  declarado, e que tipo de revisão detecta isso.
+  declarado, e que tipo de revisão detecta isso (humana, por outro agente ou
+  ambas).
 
 ---
 
@@ -490,3 +509,4 @@ encontrou ressalvas nos testes do agente (ver H3) e na autoria Git (ver H6).
 | 0.2 | 2026-09-23 | H3 atualizada com o CC-EXP-02; segue hipótese. Aprendizado provisório sobre revisão do cenário dos testes do agente | CC-EXP-02 (`561944f`, `d6a7d9e`, `56cc592`, `b4fde94`, `1565c67`) |
 | 0.3 | 2026-09-23 | H4 atualizada com o CC-EXP-03; segue hipótese. Aprendizado provisório sobre baseline parcial com arquitetura explícita | CC-EXP-03 (`6b72502`, `3fe8876`, `a47af2a`, `1bb829a`, `8e80a14`, `b521a5a`) |
 | 0.4 | 2026-09-24 | H7 criada como hipótese (delegação do ciclo até o PR, com merge humano). Observações complementares na H3 (testes do agente) e na H6 (evidência da sessão e autoria Git) | DEVIN-EXP-01 (`68870d2`, `63a343d`, `81d15a7`, `4f63243`) |
+| 0.5 | 2026-09-24 | Observação complementar na H3: revisão independente pelo Codex encontrou um teste do agente que não verifica as respostas que executa | CODEX-EXP-01 (`f3b793b`, `63a343d`) |
