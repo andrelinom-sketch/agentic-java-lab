@@ -43,4 +43,10 @@ public class TransferService {
                         Instant.now());
         return transferRepository.save(transfer);
     }
+
+    /** @throws TransferNotFoundException se não existe Transferência com esse id */
+    @Transactional(readOnly = true)
+    public Transfer findById(UUID id) {
+        return transferRepository.findById(id).orElseThrow(() -> new TransferNotFoundException(id));
+    }
 }
