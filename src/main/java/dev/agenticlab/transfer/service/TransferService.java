@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * AD-2: usa apenas o serviço público de {@code account}, nunca seu
  * repository nem seu model. AD-3: débito, crédito e registro em uma única
- * transação atômica.
+ * transação atômica; no estorno, devolução dos saldos e mudança de status.
  */
 @Service
 public class TransferService {
@@ -42,6 +42,32 @@ public class TransferService {
                         Transfer.STATUS_COMPLETED,
                         Instant.now());
         return transferRepository.save(transfer);
+    }
+
+    /**
+     * Estorna uma Transferência {@code COMPLETED} numa única transação (AD-3). AD-4: a
+     * Transferência é bloqueada antes das contas e o status é verificado depois do bloqueio; a
+     * devolução usa o mesmo caminho de saldo de uma Transferência, com origem e destino
+     * invertidos, que bloqueia as contas em ordem crescente de id.
+     *
+     * @throws TransferNotFoundException se não existe Transferência com esse id
+     * @throws TransferAlreadyReversedException se a Transferência já foi estornada
+     * @throws dev.agenticlab.account.service.InsufficientFundsException se o destino não tem
+     *     saldo para devolver o valor
+     */
+    @Transactional
+    public Transfer reverse(UUID id) {
+        Transfer transfer =
+                transferRepository
+                        .findByIdForUpdate(id)
+                        .orElseThrow(() -> new TransferNotFoundException(id));
+        if (transfer.isReversed()) {
+            throw new TransferAlreadyReversedException(id);
+        }
+        accountService.transferBalance(
+                transfer.getDestinationAccountId(), transfer.getSourceAccountId(), transfer.getAmount());
+        transfer.markReversed();
+        return transfer;
     }
 
     /** @throws TransferNotFoundException se não existe Transferência com esse id */

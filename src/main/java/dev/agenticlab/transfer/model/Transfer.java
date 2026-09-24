@@ -10,14 +10,15 @@ import java.util.UUID;
 
 /**
  * Transferência entre duas Contas. AD-6: {@code id} é UUID v4 gerado pela
- * aplicação; status tem um único valor possível, {@link #STATUS_COMPLETED},
- * guardado como texto.
+ * aplicação; status é guardado como texto e vale {@link #STATUS_COMPLETED} ou
+ * {@link #STATUS_REVERSED}. A única transição é {@code COMPLETED} → {@code REVERSED}.
  */
 @Entity
 @Table(name = "transfer")
 public class Transfer {
 
     public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_REVERSED = "REVERSED";
 
     @Id private UUID id;
 
@@ -77,5 +78,14 @@ public class Transfer {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isReversed() {
+        return STATUS_REVERSED.equals(status);
+    }
+
+    /** AD-6: o estorno muda o status da própria Transferência, sem criar outra. */
+    public void markReversed() {
+        this.status = STATUS_REVERSED;
     }
 }

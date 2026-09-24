@@ -5,6 +5,7 @@ import dev.agenticlab.account.service.DestinationAccountNotFoundException;
 import dev.agenticlab.account.service.InsufficientFundsException;
 import dev.agenticlab.account.service.SourceAccountNotFoundException;
 import dev.agenticlab.transfer.service.SameAccountException;
+import dev.agenticlab.transfer.service.TransferAlreadyReversedException;
 import dev.agenticlab.transfer.service.TransferNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -29,6 +30,7 @@ public class ApiExceptionHandler {
     private static final String INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
     private static final String SAME_ACCOUNT = "SAME_ACCOUNT";
     private static final String TRANSFER_NOT_FOUND = "TRANSFER_NOT_FOUND";
+    private static final String TRANSFER_ALREADY_REVERSED = "TRANSFER_ALREADY_REVERSED";
 
     @ExceptionHandler(AccountNotFoundException.class)
     public ProblemDetail handleAccountNotFound(AccountNotFoundException ex) {
@@ -58,6 +60,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(SameAccountException.class)
     public ProblemDetail handleSameAccount(SameAccountException ex) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), SAME_ACCOUNT);
+    }
+
+    @ExceptionHandler(TransferAlreadyReversedException.class)
+    public ProblemDetail handleTransferAlreadyReversed(TransferAlreadyReversedException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), TRANSFER_ALREADY_REVERSED);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
