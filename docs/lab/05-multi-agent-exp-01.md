@@ -302,6 +302,30 @@ A preencher após a execução.
 
 ### Revisão humana independente
 
+Revisão realizada após o commit de implementação `9a37a93` e antes de executar o Codex.
+
+#### Código de produção
+
+Nenhum finding identificado na revisão humana.
+
+A implementação segue o fluxo arquitetural aprovado: bloqueia a Transferência antes das Contas, verifica o status após o bloqueio, reutiliza `AccountService.transferBalance` com origem e destino invertidos, mantém saldo e mudança para `REVERSED` na mesma transação e não cria nova Transferência.
+
+#### Finding H1 — LOW — efetividade do teste de concorrência
+
+Arquivo: `src/test/java/dev/agenticlab/transfer/TransferReversalApiTest.java`
+
+Teste: `concurrentReversalsAndTransfersInBothDirectionsDoNotDeadlock`
+
+O teste exerce concorrência real e pode detectar falhas observáveis, timeouts e erros durante a execução. Porém, uma execução verde demonstra ausência de deadlock observável naquela execução, não prova geral de impossibilidade de deadlock.
+
+Classificação: qualidade/precisão do teste, não bug de produção.
+
+#### Resultado
+
+- Findings de produção: 0
+- Findings de testes: 1 LOW
+- Correções antes da revisão do Codex: nenhuma
+
 ### Revisão do Codex
 
 ### Comparação dos findings
