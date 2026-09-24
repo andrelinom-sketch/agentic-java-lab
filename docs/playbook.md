@@ -32,6 +32,7 @@ evidências.
 | CC-EXP-03 | [`docs/lab/02-claude-code-exp-03.md`](lab/02-claude-code-exp-03.md) | `freeze/exp-03` → `6b72502` | `3fe8876` (PR #3, merge `b521a5a`) | — (rubrica `a47af2a`, resultado `1bb829a`, transcript `8e80a14`) |
 | DEVIN-EXP-01 | [`docs/lab/03-devin-exp-01.md`](lab/03-devin-exp-01.md) | `freeze/devin-exp-01` → `68870d2` | `63a343d` (PR #4, merge `4f63243`) | — (resultado `81d15a7`, sem transcript) |
 | CODEX-EXP-01 | [`docs/lab/04-codex-exp-01.md`](lab/04-codex-exp-01.md) | — (revisão de `63a343d`, pré-declaração `f3b793b`) | — (sem implementação) | — (sem transcript) |
+| MULTI-AGENT-EXP-01 | [`docs/lab/05-multi-agent-exp-01.md`](lab/05-multi-agent-exp-01.md) | `freeze/multi-agent-exp-01` → `1c03d17` | `9a37a93` (PR #5, merge `2098a42`) | — (revisão humana `2b78d12`, resultado `9f56df6`) |
 
 O CC-EXP-01 é uma única execução de Claude Code sobre a Story 1.2
 (transferência válida). O CC-EXP-02 é uma única execução de Claude Code
@@ -46,6 +47,12 @@ observações à H3 e à H6. O CODEX-EXP-01 é uma única revisão independente,
 pelo Codex, do commit `63a343d`; acrescentou uma observação à H3. As
 limitações gerais estão no fim deste documento e valem para todas as
 recomendações abaixo.
+
+O MULTI-AGENT-EXP-01 é uma única execução sobre a Story 2.1 (estorno de
+transferência). Claude Code atuou como implementador, a revisão humana foi
+registrada antes da revisão do Codex e o Codex revisou somente o commit de
+implementação e seu parent, sem acesso à revisão humana. O experimento
+originou a H8 e acrescentou uma observação à H3.
 
 ---
 
@@ -224,6 +231,24 @@ Isso é outro caso de teste verde que não verifica parte do que executa.
 Neste caso, foi encontrado por outro agente atuando como reviewer, não pela
 revisão humana registrada, e esse agente não encontrou o que a revisão
 humana encontrou.
+
+**Observação complementar — MULTI-AGENT-EXP-01** (revisão independente;
+não é novo teste causal da H3)
+- O Claude Code criou 6 testes próprios para a Story 2.1, fora de
+  `reference/**`. O `./mvnw -B verify` executado pelo implementador terminou
+  com 62 testes verdes.
+- A revisão humana apontou uma ressalva LOW em
+  `concurrentReversalsAndTransfersInBothDirectionsDoNotDeadlock`: uma
+  execução concorrente verde pode detectar um deadlock observável naquela
+  execução, mas não demonstra a impossibilidade geral de deadlock.
+- O Codex, sem acesso à revisão humana, chegou à mesma ressalva durante
+  revisão estática. Não executou os testes.
+- Nenhuma das revisões encontrou defeito de produção.
+
+Isso reforça o aprendizado provisório desta hipótese: a execução verde não
+basta para estabelecer tudo o que o nome ou a intenção de um teste afirma.
+Em testes concorrentes, a revisão estrutural do mecanismo de locks
+complementa a evidência obtida pela execução.
 
 **O que futuros experimentos podem mostrar:**
 - se o pedido explícito produz testes em outras stories, agentes e modelos;
@@ -482,24 +507,93 @@ encontrou ressalvas nos testes do agente (ver H3) e na autoria Git (ver H6).
 
 ---
 
+## H8 — Separar implementação, revisões independentes e decisão humana
+
+**Status:** Hipótese · **Origem:** MULTI-AGENT-EXP-01
+
+**Recomendação atual:** para mudanças em que uma segunda revisão independente
+tenha valor, separar explicitamente os papéis e os artefatos: congelar o
+contrato; preservar um commit contendo somente a implementação do agente;
+registrar a revisão humana em commit separado; executar o segundo reviewer
+sobre o commit de implementação sem acesso à revisão humana; comparar os
+resultados; e deixar correções, aceitação e merge como decisão humana.
+
+**Fatos observados**
+- O freeze do experimento foi `1c03d17` e o commit de implementação produzido
+  pelo Claude Code e empacotado pelo humano sem alterações foi `9a37a93`.
+- A revisão humana foi registrada depois, em `2b78d12`, antes de acionar o
+  Codex.
+- O Codex trabalhou em worktree detached em `9a37a93`, comparando somente esse
+  commit com seu parent `1c03d17`. Nesse estado, `2b78d12` não fazia parte do
+  worktree.
+- A revisão humana encontrou 0 findings de produção e uma ressalva LOW sobre
+  a capacidade de um teste concorrente demonstrar ausência geral de deadlock.
+- O Codex encontrou 0 findings de produção e, independentemente, registrou a
+  mesma ressalva sobre o teste concorrente.
+- O Codex não executou testes; sua revisão foi estática. O implementador havia
+  executado `./mvnw -B verify` com 62 testes verdes.
+- Nenhum finding foi aplicado automaticamente. A decisão humana registrada
+  em `9f56df6` foi aceitar a implementação sem correções. O PR #5 foi
+  posteriormente integrado à `main` no merge `2098a42`.
+
+**Interpretação:** neste experimento foi possível manter separação verificável
+entre implementação, revisão humana, revisão por outro agente e decisão
+final. A convergência entre humano e Codex é evidência de independência
+operacional do processo neste caso, não evidência de que dois revisores sejam
+sempre superiores a um ou de que a revisão esteja completa.
+
+A revisão estática também complementou a evidência dinâmica: os testes verdes
+vieram da execução do implementador, enquanto humano e Codex avaliaram
+estruturalmente atomicidade, ordem de locks e aderência arquitetural.
+
+**Limitações:**
+- Uma única execução, sobre uma única story e um único par
+  implementador/reviewer.
+- Humano e Codex convergiram; portanto, este experimento não mede o valor
+  incremental de um finding exclusivo do segundo reviewer.
+- O Codex não executou os testes.
+- O avaliador humano também desenhou o experimento e os testes de referência.
+- O implementador podia saber, pelos documentos do repositório, que haveria
+  revisão posterior.
+- O isolamento dependeu tanto do worktree detached quanto do cumprimento do
+  prompt que restringia o reviewer ao commit de implementação e ao parent.
+
+**O que futuros experimentos podem mostrar:**
+- se revisores independentes encontram findings complementares em outras
+  mudanças;
+- quando o custo de uma segunda revisão compensa seu valor;
+- se o isolamento continua eficaz com outros agentes, modelos e stories;
+- se executar testes durante a segunda revisão muda os findings.
+
+---
+
 ## Limitações gerais desta versão
 
-- Cada recomendação deriva de **uma única execução** por story: um agente,
-  um modelo, sem repetição e sem grupo de controle. A H3 tem duas
-  execuções (CC-EXP-01 e CC-EXP-02), e a H4 também (CC-EXP-01 e CC-EXP-03),
-  sempre sobre stories diferentes. A H7 tem uma única execução
-  (DEVIN-EXP-01).
-- O DEVIN-EXP-01 usou outro agente, outro grau de autonomia e outra story.
-  Nenhuma comparação entre agentes é feita neste playbook.
-- A story medida é pequena, e a parte difícil do domínio ainda não foi
-  exercitada.
-- No CC-EXP-03, a concorrência foi verificada pelos testes de referência,
-  mas o mecanismo já existia na baseline. O agente não precisou projetá-lo.
-- O CC-EXP-01 foi conduzido sem rubrica versionada e sem aplicar a
-  taxonomia de intervenções.
-- Houve um único avaliador, que também desenhou o experimento.
-- Nenhuma relação causal entre o contexto fornecido e o resultado foi
-  demonstrada.
+- Os resultados vêm de poucas execuções, sem repetição sistemática nem grupo
+  de controle. Não demonstram relações causais entre prompt, contexto,
+  ferramenta e qualidade do resultado.
+- As stories são deliberadamente pequenas e executadas sobre uma arquitetura
+  já definida. O laboratório exercitou regras de negócio, persistência,
+  tratamento de erros, concorrência, bloqueios, restrições de banco e estorno,
+  mas não avalia sistemas distribuídos, modernização de legado ou decisões
+  arquiteturais amplamente abertas.
+- O CC-EXP-03 verificou concorrência quando parte do mecanismo já existia na
+  baseline; ele não mede a capacidade do agente de projetar sozinho a
+  estratégia de concorrência.
+- O DEVIN-EXP-01 usou outro agente, outra story e maior autonomia. Os
+  experimentos não constituem benchmark comparável entre Claude Code, Devin
+  e Codex.
+- O CODEX-EXP-01 e o MULTI-AGENT-EXP-01 mostram revisão por outro agente em
+  casos específicos. Não demonstram que um segundo reviewer sempre encontre
+  problemas adicionais ou produza revisão completa.
+- Nem todos os experimentos preservaram evidência verificável da sessão. Por
+  isso, algumas afirmações sobre tempo e intervenção humana continuam
+  dependentes do registro do avaliador.
+- O avaliador humano também participou do desenho do laboratório, das stories
+  e dos testes de referência, o que limita a independência da avaliação.
+- As recomendações deste playbook são práticas derivadas do laboratório e
+  permanecem hipóteses ou aprendizados apoiados por evidência limitada; não
+  devem ser tratadas como regras universais de engenharia com agentes.
 
 ## Histórico
 
@@ -510,3 +604,4 @@ encontrou ressalvas nos testes do agente (ver H3) e na autoria Git (ver H6).
 | 0.3 | 2026-09-23 | H4 atualizada com o CC-EXP-03; segue hipótese. Aprendizado provisório sobre baseline parcial com arquitetura explícita | CC-EXP-03 (`6b72502`, `3fe8876`, `a47af2a`, `1bb829a`, `8e80a14`, `b521a5a`) |
 | 0.4 | 2026-09-24 | H7 criada como hipótese (delegação do ciclo até o PR, com merge humano). Observações complementares na H3 (testes do agente) e na H6 (evidência da sessão e autoria Git) | DEVIN-EXP-01 (`68870d2`, `63a343d`, `81d15a7`, `4f63243`) |
 | 0.5 | 2026-09-24 | Observação complementar na H3: revisão independente pelo Codex encontrou um teste do agente que não verifica as respostas que executa | CODEX-EXP-01 (`f3b793b`, `63a343d`) |
+| 1.0 | 2026-09-24 | Consolidação final do laboratório V1. H8 criada para separação entre implementação, revisões independentes e decisão humana; H3 e limitações gerais atualizadas com o experimento multiagente | MULTI-AGENT-EXP-01 (`1c03d17`, `9a37a93`, `2b78d12`, `9f56df6`, `2098a42`) |
