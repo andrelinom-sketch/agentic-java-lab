@@ -43,6 +43,12 @@ public class TransferController {
         return ResponseEntity.ok(toResponse(transferService.findById(id)));
     }
 
+    /** AD-7: não cria recurso, por isso 200 sem {@code Location}. */
+    @PostMapping("/{id}/reversal")
+    public ResponseEntity<TransferResponse> reverse(@PathVariable UUID id) {
+        return ResponseEntity.ok(toResponse(transferService.reverse(id)));
+    }
+
     private TransferResponse toResponse(Transfer transfer) {
         return new TransferResponse(
                 transfer.getId(),
