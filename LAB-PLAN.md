@@ -815,7 +815,7 @@ perguntas como:
 
 Estado consolidado ao encerramento da primeira versão do laboratório:
 
-STATUS: **LABORATÓRIO V1 EM ENCERRAMENTO**
+STATUS: **LABORATÓRIO V1 CONCLUÍDO**
 
 - FASE 1 — BMAD: **CONCLUÍDA**
 - FASE 2 — Claude Code: **CONCLUÍDA**
@@ -890,22 +890,18 @@ esse processo.
 
 ## 28. Próxima ação
 
-O Milestone 1 e as Fases 1–5 já foram executados.
+A V1 do Agentic Java Lab foi concluída.
 
-A próxima ação é concluir formalmente a V1 do laboratório:
+O ciclo Foundation → BMAD → Claude Code → Devin → Codex → Multiagente foi
+executado, documentado e consolidado no Agent Engineering Playbook v1.0.
 
-1. revisar e atualizar a documentação final;
-2. atualizar o README para refletir o estado real do laboratório;
-3. executar a validação final da aplicação e dos testes;
-4. verificar que o repositório está limpo e sincronizado;
-5. criar uma tag Git identificando a conclusão da V1.
+A aplicação passou pela validação final e o repositório foi verificado como
+limpo e sincronizado.
 
-Não iniciar automaticamente modernização de legado, Strangler Fig, Kafka,
-sistemas distribuídos ou novos experimentos como requisito para encerrar
-esta versão.
-
-Esses temas permanecem como possíveis evoluções posteriores e devem começar
-como uma nova etapa deliberada do laboratório, caso haja interesse.
+Qualquer nova atividade — incluindo modernização de legado, Strangler Fig,
+Kafka, sistemas distribuídos ou novos experimentos — pertence a uma etapa
+pós-V1 e deve começar como uma decisão deliberada, não como pendência desta
+versão.
 
 ## 29. Instrução para uma nova IA
 
